@@ -33,7 +33,7 @@ MANUAL = {
     'centuries': 'sˈɛnʧəɹiz', 'bodies': 'bˈɑdiz', 'to': 'tə',
     'forties': 'fˈɔɹtiz', 'raytheon': 'ɹˈAθiˌɑn', 'percy': 'pˈɜɹsi', 'gets': 'ɡˈɛts',
     'chavannes': 'ʃɑvˈɑn', 'sealed': 'sˈild', 'ibm': 'ˌIbˌiˈɛm',
-    'coover': 'kˈuvəɹ', 'joyner': 'ʤˈYnəɹ', 'canopies': 'kˈænəpiz', 'hardens': 'hˈɑɹdᵊnz', 'tv': 'tˌivˈi', 'realized': 'ɹˈiəlˌIzd', 'howe': 'hˈW',
+    'coover': 'kˈuvəɹ', 'joyner': 'ʤˈYnəɹ', 'canopies': 'kˈænəpiz', 'hardens': 'hˈɑɹdᵊnz', 'tv': 'tˌivˈi', 'realized': 'ɹˈiəlˌIzd', 'howe': 'hˈW', 'noticed': 'nˈOtɪst', 'goldman': 'ɡˈOldmən', 'orla': 'ˈɔɹlə', 'thirties': 'θˈɜɹtiz', 'wanted': 'wˈɑntɪd',
 }
 VOWEL_START = set('aeiouæɑɐɒɔəɛɜɪʊʌAIOWYˈˌ')
 
