@@ -29,7 +29,10 @@ for i, (m, sent) in enumerate(zip(meta, SENTENCES)):
     on = np.where(e > thr)[0]
     s0 = max(0, (on[0] - 3) * HOP)
     s1 = min(len(a), (on[-1] + 6) * HOP)
-    clip = a[s0:s1]
+    clip = a[s0:s1].copy()
+    fi, fo = int(0.012 * SR), int(0.04 * SR)
+    clip[:fi] *= np.linspace(0, 1, fi)
+    clip[-fo:] *= np.linspace(1, 0, fo)
     ce = e[max(0, on[0] - 3):on[-1] + 6]
     # internal pauses
     quiet = ce < e.max() * 0.03

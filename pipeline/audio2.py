@@ -34,9 +34,23 @@ sr, v = wavfile.read('/home/claude/vid4/voice/voice.wav')
 v = resample_poly(v.astype(np.float32) / 32768, 2, 1)
 voice = np.zeros(N, np.float32)
 voice[:min(N, len(v))] = v[:N]
-voice = hp(voice, 80)
-voice = norm(voice, 0.8)
-voice = np.tanh(voice * 1.7) / np.tanh(1.7)
+voice = hp(voice, 70)
+voice = lp(voice, 11000)
+# gentle de-ess: tame 5-9 kHz a little
+ess = bp(voice, 5000, 9000)
+voice = voice - 0.35 * ess
+# smooth compressor (no clipping): slow RMS envelope, 2.5:1 above threshold
+env = np.sqrt(np.convolve(voice ** 2, np.ones(int(0.03 * SR)) / int(0.03 * SR), mode='same') + 1e-9)
+thr = 0.08
+gain = np.where(env > thr, (thr * (env / thr) ** (1 / 2.5)) / env, 1.0)
+gain = np.convolve(gain, np.ones(int(0.02 * SR)) / int(0.02 * SR), mode='same')
+voice = voice * gain
+# small, warm room so words don't sound dry and choppy
+ir_n = int(0.35 * SR)
+ir = lp(noise(ir_n), 3500) * np.exp(-np.arange(ir_n) / SR * 14)
+ir = ir / np.sqrt((ir ** 2).sum())
+wet = np.convolve(voice, ir)[:N]
+voice = voice  # no reverb (user heard echo)
 voice = norm(voice, 0.88)
 
 # ---------------------------------------------------------------- music (bouncy, curious)
