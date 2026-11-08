@@ -33,7 +33,7 @@ MANUAL = {
     'centuries': 'sˈɛnʧəɹiz', 'bodies': 'bˈɑdiz', 'to': 'tə',
     'forties': 'fˈɔɹtiz', 'raytheon': 'ɹˈAθiˌɑn', 'percy': 'pˈɜɹsi', 'gets': 'ɡˈɛts',
     'chavannes': 'ʃɑvˈɑn', 'sealed': 'sˈild', 'ibm': 'ˌIbˌiˈɛm',
-    'coover': 'kˈuvəɹ', 'joyner': 'ʤˈYnəɹ', 'canopies': 'kˈænəpiz', 'hardens': 'hˈɑɹdᵊnz', 'tv': 'tˌivˈi', 'realized': 'ɹˈiəlˌIzd', 'howe': 'hˈW', 'noticed': 'nˈOtɪst', 'goldman': 'ɡˈOldmən', 'orla': 'ˈɔɹlə', 'thirties': 'θˈɜɹtiz', 'wanted': 'wˈɑntɪd',
+    'coover': 'kˈuvəɹ', 'joyner': 'ʤˈYnəɹ', 'canopies': 'kˈænəpiz', 'hardens': 'hˈɑɹdᵊnz', 'tv': 'tˌivˈi', 'realized': 'ɹˈiəlˌIzd', 'howe': 'hˈW', 'noticed': 'nˈOtɪst', 'goldman': 'ɡˈOldmən', 'orla': 'ˈɔɹlə', 'thirties': 'θˈɜɹtiz', 'wanted': 'wˈɑntɪd', 'ed': 'ˈɛd', 'frisbie': 'fɹˈɪzbi', 'hated': 'hˈAɾɪd', 'headrick': 'hˈɛdɹɪk', 'lucile': 'lusˈil', 'morrison': 'mˈɔɹɪsən', 'opened': 'ˈOpənd', 'renamed': 'ɹinˈAmd', 'students': 'stˈudᵊnts', "that's": 'ðˈæts',
 }
 VOWEL_START = set('aeiouæɑɐɒɔəɛɜɪʊʌAIOWYˈˌ')
 
