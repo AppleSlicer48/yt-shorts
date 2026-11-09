@@ -13,9 +13,9 @@ def env(x):
     f = x[:n * HOP].reshape(n, HOP)
     return np.sqrt((f ** 2).mean(1) + 1e-12)
 
-LEAD = 0.6
+LEAD = 0.3
 GAP = 0.2
-TAIL = 1.75
+TAIL = 1.2
 BREAK_CHARS = ',:?;.'
 
 track = [np.zeros(int(LEAD * SR), np.float32)]
