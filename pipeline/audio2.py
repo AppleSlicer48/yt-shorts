@@ -53,79 +53,88 @@ wet = np.convolve(voice, ir)[:N]
 voice = voice  # no reverb (user heard echo)
 voice = norm(voice, 0.88)
 
-# ---------------------------------------------------------------- music (bouncy, curious)
-def note(m):
-    return 440.0 * 2 ** ((m - 69) / 12)
+# ---------------------------------------------------------------- music
+import os, sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+MUSIC_STYLE = os.environ.get('MUSIC_STYLE', 'mystery')
+if MUSIC_STYLE == 'orig':
+    def note(m):
+        return 440.0 * 2 ** ((m - 69) / 12)
 
-BPM = 116
-beat = 60 / BPM
-bar = beat * 4
-prog = [[65, 69, 72], [60, 64, 67], [62, 65, 69], [58, 62, 65]]  # F C Dm Bb
-music = np.zeros(N, np.float32)
+    BPM = 116
+    beat = 60 / BPM
+    bar = beat * 4
+    prog = [[65, 69, 72], [60, 64, 67], [62, 65, 69], [58, 62, 65]]  # F C Dm Bb
+    music = np.zeros(N, np.float32)
 
-def pluck(f, dur=0.6, decay=0.995):
-    L = int(SR / f)
-    buf = rng.uniform(-1, 1, L)
-    n = int(dur * SR)
-    out = np.zeros(n)
-    idx = 0
-    for k in range(n):
-        out[k] = buf[idx]
-        nxt = (idx + 1) % L
-        buf[idx] = decay * 0.5 * (buf[idx] + buf[nxt])
-        idx = nxt
-    return out * np.exp(-np.arange(n) / SR * 4.0)
+    def pluck(f, dur=0.6, decay=0.995):
+        L = int(SR / f)
+        buf = rng.uniform(-1, 1, L)
+        n = int(dur * SR)
+        out = np.zeros(n)
+        idx = 0
+        for k in range(n):
+            out[k] = buf[idx]
+            nxt = (idx + 1) % L
+            buf[idx] = decay * 0.5 * (buf[idx] + buf[nxt])
+            idx = nxt
+        return out * np.exp(-np.arange(n) / SR * 4.0)
 
-cache = {}
-arp = np.zeros(N)
-pattern = [0, 2, 1, 2, 0, 2, 1, 2]
-step = beat / 2
-k = 0
-while k * step < N / SR:
-    b = int(k * step / bar)
-    ch = prog[b % 4]
-    m = ch[pattern[k % 8]] + 12
-    if m not in cache:
-        cache[m] = pluck(note(m))
-    s = cache[m]
-    s0 = int(k * step * SR)
-    L = min(len(s), N - s0)
-    arp[s0:s0 + L] += s[:L] * (1.0 if k % 2 == 0 else 0.55)
-    k += 1
-arp = bp(arp, 220, 5000)
-music += norm(arp, 0.5)
+    cache = {}
+    arp = np.zeros(N)
+    pattern = [0, 2, 1, 2, 0, 2, 1, 2]
+    step = beat / 2
+    k = 0
+    while k * step < N / SR:
+        b = int(k * step / bar)
+        ch = prog[b % 4]
+        m = ch[pattern[k % 8]] + 12
+        if m not in cache:
+            cache[m] = pluck(note(m))
+        s = cache[m]
+        s0 = int(k * step * SR)
+        L = min(len(s), N - s0)
+        arp[s0:s0 + L] += s[:L] * (1.0 if k % 2 == 0 else 0.55)
+        k += 1
+    arp = bp(arp, 220, 5000)
+    music += norm(arp, 0.5)
 
-bass = np.zeros(N)
-for b in range(int(N / SR / beat) + 1):
-    ch = prog[int(b * beat / bar) % 4]
-    f = note(ch[0] - 24)
-    s0 = int(b * beat * SR)
-    L = min(int(beat * 0.9 * SR), N - s0)
-    if L <= 0:
-        break
-    tt = np.arange(L) / SR
-    bass[s0:s0 + L] += np.sin(2 * np.pi * f * tt) * np.exp(-tt * 5) * (1.0 if b % 2 == 0 else 0.7)
-music += norm(bass, 0.35)
+    bass = np.zeros(N)
+    for b in range(int(N / SR / beat) + 1):
+        ch = prog[int(b * beat / bar) % 4]
+        f = note(ch[0] - 24)
+        s0 = int(b * beat * SR)
+        L = min(int(beat * 0.9 * SR), N - s0)
+        if L <= 0:
+            break
+        tt = np.arange(L) / SR
+        bass[s0:s0 + L] += np.sin(2 * np.pi * f * tt) * np.exp(-tt * 5) * (1.0 if b % 2 == 0 else 0.7)
+    music += norm(bass, 0.35)
 
-perc = np.zeros(N)
-kt = np.arange(int(0.25 * SR)) / SR
-kick = np.sin(2 * np.pi * (48 * kt + 50 * (1 - np.exp(-kt * 35)) / 35)) * np.exp(-kt * 14)
-snap_n = int(0.09 * SR)
-snap = bp(noise(snap_n), 1500, 6000) * np.exp(-np.arange(snap_n) / SR * 45)
-hat_n = int(0.04 * SR)
-hat = hp(noise(hat_n), 7000) * np.exp(-np.arange(hat_n) / SR * 90)
-b = 0
-while b * beat < N / SR:
-    s0 = int(b * beat * SR)
-    if b % 4 in (0, 2):
-        L = min(len(kick), N - s0); perc[s0:s0 + L] += kick[:L]
-    else:
-        L = min(len(snap), N - s0); perc[s0:s0 + L] += snap[:L] * 0.5
-    s1 = int((b + 0.5) * beat * SR)
-    if s1 < N:
-        L = min(len(hat), N - s1); perc[s1:s1 + L] += hat[:L] * 0.25
-    b += 1
-music += norm(perc, 0.45)
+    perc = np.zeros(N)
+    kt = np.arange(int(0.25 * SR)) / SR
+    kick = np.sin(2 * np.pi * (48 * kt + 50 * (1 - np.exp(-kt * 35)) / 35)) * np.exp(-kt * 14)
+    snap_n = int(0.09 * SR)
+    snap = bp(noise(snap_n), 1500, 6000) * np.exp(-np.arange(snap_n) / SR * 45)
+    hat_n = int(0.04 * SR)
+    hat = hp(noise(hat_n), 7000) * np.exp(-np.arange(hat_n) / SR * 90)
+    b = 0
+    while b * beat < N / SR:
+        s0 = int(b * beat * SR)
+        if b % 4 in (0, 2):
+            L = min(len(kick), N - s0); perc[s0:s0 + L] += kick[:L]
+        else:
+            L = min(len(snap), N - s0); perc[s0:s0 + L] += snap[:L] * 0.5
+        s1 = int((b + 0.5) * beat * SR)
+        if s1 < N:
+            L = min(len(hat), N - s1); perc[s1:s1 + L] += hat[:L] * 0.25
+        b += 1
+    music += norm(perc, 0.45)
+
+
+else:
+    from music_styles import make_music
+    music = make_music(MUSIC_STYLE, N, SR, t, lp, hp, bp, noise, norm, rng)
 
 venv = np.convolve(np.abs(voice), np.ones(int(0.12 * SR)) / int(0.12 * SR), mode='same')
 duck = 1 - 0.5 * np.clip(venv / 0.08, 0, 1)
@@ -134,7 +143,8 @@ tromb = [e['t'] for e in EV if e['kind'] == 'trombone']
 if tromb:
     tt0 = tromb[0] - 0.15
     fade = fade * np.clip(1 - (t - tt0) / 0.25, 0, 1) ** 1
-music = norm(music, 1.0) * 0.17 * duck * fade
+MUSIC_GAIN = {'orig': 0.17, 'mystery': 0.15, 'lofi': 0.13, 'none': 0.0}.get(MUSIC_STYLE, 0.15)
+music = (norm(music, 1.0) if MUSIC_GAIN else music) * MUSIC_GAIN * duck * fade
 
 # ---------------------------------------------------------------- sound effects
 def env_exp(n, rate):
