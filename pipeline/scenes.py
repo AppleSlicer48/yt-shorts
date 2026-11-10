@@ -1,592 +1,535 @@
 import math
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
-from scipy.ndimage import gaussian_filter
 from engine import *
-from base_scenes import ARM_LIGHT, CX, CY, plate_img, dark_room
+from base_scenes import CX, CY, plate_img, dark_room
 from mw_scenes import glow, stamp_sprite
-from bw_scenes import S, C, OV, stamp_in, get_hand, draw_hand, shadow_of
-from cart_scenes import with_shadow, ground_shadow
+from bw_scenes import S, C, OV, stamp_in, get_hand, draw_hand
+from cart_scenes import ground_shadow
 
+# Great Molasses Flood (Boston, January 15, 1919)
 GOLD = (240, 160, 60)
 RED = (200, 50, 45)
 YEL = (255, 210, 60)
 DARK = (34, 36, 44)
 WHITE = (255, 255, 255)
-SKIN = '#C9CED6'
+MOL = (58, 28, 10)
+MOL_HI = (150, 78, 26)
+BROWN = (110, 62, 30)
 
+GROUND = 1300
 _SP = {}
 _PL = {}
 
-# ====================================================================== sky / sea backdrops
-def sky_plate(kind='day', seed=1, sea=False, hz=1300):
-    key = (kind, seed, sea, hz)
+# ====================================================================== backdrops
+def street_plate(kind='winter', rail=True, seed=1):
+    key = (kind, rail, seed)
     if key in _PL:
         return _PL[key].copy()
-    if kind == 'day':
-        arr = vgrad(PW, PH, [(0, '#2F78C4'), (0.55, '#8FC4EC'), (1, '#CFE6F6')])
-    elif kind == 'storm':
-        arr = vgrad(PW, PH, [(0, '#1E2A3E'), (0.55, '#4A5A72'), (1, '#7A8798')])
-    else:  # dusk
-        arr = vgrad(PW, PH, [(0, '#24305E'), (0.5, '#C9706A'), (1, '#F2B27A')])
+    if kind == 'winter':
+        arr = vgrad(PW, PH, [(0, '#5E7590'), (0.45, '#A9B8C8'), (1, '#D9DEE4')])
+    else:  # hot summer
+        arr = vgrad(PW, PH, [(0, '#3D8FD6'), (0.45, '#9ED0F2'), (1, '#F6E2B0')])
     img = to_img(arr).convert('RGBA')
     d = ImageDraw.Draw(img, 'RGBA')
     rng = np.random.default_rng(seed)
-    cc = (255, 255, 255, 150) if kind == 'day' else ((150, 160, 178, 150) if kind == 'storm' else (255, 214, 190, 120))
-    for _ in range(9):
-        x, y = rng.uniform(-100, PW + 100), rng.uniform(150, 1150)
-        for k in range(6):
-            r = rng.uniform(60, 130)
-            d.ellipse((x + k * 70 - r, y - r * 0.6, x + k * 70 + r, y + r * 0.6), fill=cc)
-    img = img.filter(ImageFilter.GaussianBlur(10))
-    if sea:
-        d = ImageDraw.Draw(img, 'RGBA')
-        s = vgrad(PW, PH - hz, [(0, '#2F6E96' if kind != 'storm' else '#2A4256'), (1, '#0F2C44')])
-        img.paste(to_img(s), (0, hz))
-        for k in range(40):
-            y = hz + 20 + (k * 37) % (PH - hz - 20)
-            x = (k * 211) % PW
-            d.line((x, y, x + 140, y), fill=(255, 255, 255, 50), width=4)
-    _PL[key] = img
-    return img.copy()
-
-def tarmac_plate():
-    if 'tarmac' in _PL:
-        return _PL['tarmac'].copy()
-    img = sky_plate('storm', 4)
-    d = ImageDraw.Draw(img, 'RGBA')
-    d.rectangle((0, 1250, PW, PH), fill=(70, 72, 76, 255))
-    for x in range(0, PW, 260):
-        d.rectangle((x, 1380, x + 140, 1396), fill=(240, 220, 120, 200))
-    d.rectangle((0, 1240, PW, 1252), fill=(40, 42, 46, 255))
-    _PL['tarmac'] = img
-    return img.copy()
-
-def hangar_plate():
-    if 'hangar' in _PL:
-        return _PL['hangar'].copy()
-    arr = dark_room('#33404C', '#0E1318', spot=(CX, 900, 1200), strength=1.0)
-    img = plate_img(arr)
-    d = ImageDraw.Draw(img, 'RGBA')
-    for x in range(-40, PW, 216):
-        d.line((x, 0, x, 1250), fill=(0, 0, 0, 70), width=10)
-    d.rectangle((0, 1250, PW, PH), fill=(46, 50, 56, 255))
-    _PL['hangar'] = img
-    return img.copy()
-
-# ====================================================================== props
-def jet_sprite(L=1000, color=SKIN, windows='square', stripe=(40, 80, 160)):
-    """Side view of a generic 1950s jetliner, nose to the right."""
-    key = ('jet', L, color, windows, stripe)
-    if key in _SP:
-        return _SP[key]
-    W_, H_ = int(L * 1.08), int(L * 0.42)
-    lay = Layer(W_, H_)
-    r = L * 0.06
-    y = H_ * 0.58
-    x0, x1 = L * 0.10, L * 0.92
-    col = hexc(color)
-    # tail fin and tailplane (behind body)
-    fill_poly(lay, [(x0 + r * 0.4, y - r * 0.6), (x0 - r * 0.9, y - r * 4.2), (x0 + r * 0.6, y - r * 4.2), (x0 + r * 3.6, y - r * 0.8)], col * 0.82)
-    fill_poly(lay, [(x0 + r * 0.6, y - r * 0.1), (x0 - r * 1.2, y - r * 0.6), (x0 - r * 0.6, y + r * 0.1), (x0 + r * 2.8, y + r * 0.2)], col * 0.7)
-    capsule(lay, (x0 + r * 0.4, y - r * 0.25), (x0 + r * 4, y), r * 0.35, r, col, spec=0.6, shin=30)
-    capsule(lay, (x0 + r * 3, y), (x1 - r * 1.2, y), r, r, col, spec=0.6, shin=30)
-    capsule(lay, (x1 - r * 1.5, y), (x1 + r * 0.9, y + r * 0.25), r, r * 0.25, col, spec=0.6, shin=30)
-    # wing (near side)
-    fill_poly(lay, [(L * 0.46, y + r * 0.25), (L * 0.62, y + r * 0.2), (L * 0.50, y + r * 2.6), (L * 0.42, y + r * 2.6)], col * 0.62)
-    capsule(lay, (L * 0.47, y + r * 0.45), (L * 0.60, y + r * 0.4), r * 0.28, r * 0.28, col * 0.75, spec=0.5)
-    sp, _, _ = layer_sprite(lay, 2)
-    ox, oy = _, _
-    d = ImageDraw.Draw(sp, 'RGBA')
-    # cheat line
-    def P(x, yy):
-        return (x - ox, yy - oy)
-    d.rectangle((*P(x0 + r * 2.5, y + r * 0.05), *P(x1 - r * 0.2, y + r * 0.22)), fill=stripe + (230,))
-    # windows
-    ww = r * 0.42
-    xs = np.arange(x0 + r * 4.2, x1 - r * 2.4, r * 0.78)
-    for wx in xs:
-        bx = (*P(wx - ww / 2, y - r * 0.5), *P(wx + ww / 2, y - r * 0.5 + ww * (1.0 if windows == 'square' else 1.35)))
-        if windows == 'square':
-            d.rounded_rectangle(bx, radius=max(1, ww * 0.12), fill=(30, 44, 70, 255))
-        else:
-            d.rounded_rectangle(bx, radius=ww * 0.5, fill=(30, 44, 70, 255))
-    # cockpit
-    d.polygon([P(x1 - r * 0.3, y - r * 0.55), P(x1 + r * 0.35, y - r * 0.3), P(x1 + r * 0.2, y - r * 0.12), P(x1 - r * 0.35, y - r * 0.3)], fill=(30, 44, 70, 255))
-    _SP[key] = (sp, ox, oy)
-    return _SP[key]
-
-def jet_halves(L=1000, split=0.5):
-    """Return the jet sprite cut in two at fraction `split` with jagged edges: (rear, front, cut_x)."""
-    key = ('halves', L, split)
-    if key in _SP:
-        return _SP[key]
-    sp, _, _ = jet_sprite(L)
-    w, h = sp.size
-    cx = int(w * split)
-    rng = np.random.default_rng(3)
-    ys = np.linspace(0, h, 14)
-    pts = [(cx + rng.uniform(-28, 28), yy) for yy in ys]
-    mask = Image.new('L', (w, h), 0)
-    ImageDraw.Draw(mask).polygon([(0, 0)] + pts + [(0, h)], fill=255)
-    rear = sp.copy(); a = np.minimum(np.asarray(sp.getchannel('A')), np.asarray(mask)); rear.putalpha(Image.fromarray(a))
-    front = sp.copy(); a = np.minimum(np.asarray(sp.getchannel('A')), 255 - np.asarray(mask)); front.putalpha(Image.fromarray(a))
-    _SP[key] = (rear, front, cx)
-    return _SP[key]
-
-def window_sprite(w=520, h=620, radius=0.05, pane='sky'):
-    """Close-up of an aircraft window set into a riveted skin patch."""
-    key = ('win', w, h, radius, pane)
-    if key in _SP:
-        return _SP[key]
-    pad = 70
-    im = Image.new('RGBA', (w + pad * 2, h + pad * 2), (0, 0, 0, 0))
-    d = ImageDraw.Draw(im)
-    rr = int(min(w, h) * radius)
-    # bezel
-    d.rounded_rectangle((pad - 46, pad - 46, pad + w + 46, pad + h + 46), radius=rr + 46, fill=(150, 156, 166, 255))
-    d.rounded_rectangle((pad - 30, pad - 30, pad + w + 30, pad + h + 30), radius=rr + 30, fill=(110, 116, 126, 255))
-    # pane
-    if pane == 'sky':
-        g = vgrad(w, h, [(0, '#3E86CC'), (0.6, '#9ACCF0'), (1, '#E4F2FA')])
-    else:  # water
-        g = vgrad(w, h, [(0, '#1C5A7A'), (1, '#0C2E44')])
-    gi = to_img(g).convert('RGBA')
-    gd = ImageDraw.Draw(gi, 'RGBA')
-    if pane == 'sky':
-        for (cx, cy, s) in ((0.3, 0.62, 1.0), (0.75, 0.75, 0.8), (0.55, 0.88, 1.2)):
-            for k in range(4):
-                gd.ellipse((w * cx - 90 * s + k * 50 * s - 60, h * cy - 40 * s, w * cx + k * 50 * s - 10, h * cy + 40 * s), fill=(255, 255, 255, 200))
-    # glare
-    gd.polygon([(w * 0.08, h * 0.05), (w * 0.32, h * 0.05), (w * 0.12, h * 0.6), (w * 0.0, h * 0.6)], fill=(255, 255, 255, 50))
-    m = Image.new('L', (w, h), 0)
-    ImageDraw.Draw(m).rounded_rectangle((0, 0, w - 1, h - 1), radius=rr, fill=255)
-    gi.putalpha(m)
-    im.alpha_composite(gi, (pad, pad))
-    _SP[key] = im
-    return im
-
-def skin_plate(base='#B8BEC8', dark='#7E8692', seed=2, under=False):
-    key = ('skin', base, seed, under)
-    if key in _PL:
-        return _PL[key].copy()
-    arr = vgrad(PW, PH, [(0, base), (0.5, '#D6DBE2'), (1, dark)])
-    arr = arr * (0.94 + 0.1 * smooth_noise(PH, PW, 60, seed, 3))[..., None]
-    if under:
-        arr = arr * np.array([0.7, 0.85, 1.0], np.float32) * 0.7
-    img = to_img(arr).convert('RGBA')
-    d = ImageDraw.Draw(img, 'RGBA')
-    for y in range(80, PH, 330):
-        d.line((0, y, PW, y), fill=(60, 64, 72, 120), width=5)
-        for x in range(20, PW, 54):
-            d.ellipse((x - 6, y + 22, x + 6, y + 34), fill=(90, 94, 104, 170))
-            d.ellipse((x - 4, y + 22, x + 2, y + 28), fill=(255, 255, 255, 90))
-    for x in range(100, PW, 430):
-        d.line((x, 0, x, PH), fill=(60, 64, 72, 90), width=4)
-    _PL[key] = plate_img(vignette(to_arr(img), 0.4))
+    # brick buildings
+    x = -40
+    k = 0
+    while x < PW + 40:
+        w = rng.integers(200, 290)
+        h = rng.integers(430, 640)
+        base = [(150, 72, 52), (128, 60, 46), (170, 92, 64), (112, 70, 56)][k % 4]
+        d.rectangle((x, GROUND - h, x + w, GROUND), fill=base + (255,))
+        d.rectangle((x, GROUND - h - 18, x + w, GROUND - h), fill=tuple(int(c * 0.7) for c in base) + (255,))
+        for wy in range(GROUND - h + 50, GROUND - 120, 110):
+            for wx in range(x + 30, x + w - 50, 80):
+                d.rectangle((wx, wy, wx + 44, wy + 66), fill=(46, 52, 66, 255))
+                d.rectangle((wx, wy, wx + 44, wy + 8), fill=(210, 200, 180, 255))
+        d.rectangle((x + w // 2 - 40, GROUND - 140, x + w // 2 + 40, GROUND), fill=(60, 40, 30, 255))
+        x += w + 6
+        k += 1
+    # cobbles
+    d.rectangle((0, GROUND, PW, PH), fill=(118, 116, 112, 255))
+    for row, y in enumerate(range(GROUND + 10, PH, 46)):
+        off = 0 if row % 2 == 0 else 40
+        for xx in range(-80 + off, PW, 80):
+            d.rounded_rectangle((xx + 4, y, xx + 74, y + 38), 10, fill=(100 + (xx * 7 + y) % 24, 98, 94, 255))
+    d.rectangle((0, GROUND - 6, PW, GROUND + 8), fill=(70, 68, 66, 255))
+    if rail:
+        draw_rail(d, 0.0)
+    _PL[key] = plate_img(vignette(to_arr(img), 0.35))
     return _PL[key].copy()
 
-def crack_paths(cx, cy, w, h, seed=5, n_per=2, length=520):
-    """Jagged crack polylines radiating from the four window corners."""
-    rng = np.random.default_rng(seed)
-    paths = []
-    for sx in (-1, 1):
-        for sy in (-1, 1):
-            for j in range(n_per):
-                x, y = cx + sx * w / 2, cy + sy * h / 2
-                ang = math.atan2(sy, sx) + rng.uniform(-0.45, 0.45)
-                pts = [(x, y)]
-                seg = length / 9
-                for k in range(9):
-                    ang += rng.uniform(-0.5, 0.5)
-                    x += math.cos(ang) * seg * rng.uniform(0.7, 1.2)
-                    y += math.sin(ang) * seg * rng.uniform(0.7, 1.2)
-                    pts.append((x, y))
-                paths.append(pts)
-    return paths
+RAIL_Y = 760
 
-def draw_cracks(img, paths, prog, width=9):
-    if prog <= 0:
-        return
-    xs = [p[0] for pp in paths for p in pp]; ys = [p[1] for pp in paths for p in pp]
-    ov = OV(img, min(xs) - 30, min(ys) - 30, max(xs) + 30, max(ys) + 30)
-    for pp in paths:
-        n = len(pp) - 1
-        m = prog * n
-        k = int(m)
-        pts = pp[:k + 1]
-        if k < n:
-            f = m - k
-            a, b = pp[k], pp[k + 1]
-            pts = pts + [(a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f)]
-        if len(pts) > 1:
-            ov.d.line(ov.pts(pts), fill=(20, 16, 16, 255), width=width, joint='curve')
-            ov.d.line(ov.pts([(x + 3, y + 3) for x, y in pts]), fill=(255, 255, 255, 90), width=2)
+def rail_y(x, bend):
+    # sag concentrated around x = 0.62 * PW
+    return RAIL_Y + bend * 190 * math.exp(-((x - PW * 0.62) / 260) ** 2)
+
+def draw_rail(d, bend, off=(0, 0)):
+    ox, oy = off
+    xs = np.linspace(-20, PW + 20, 60)
+    top = [(x - ox, rail_y(x, bend) - oy) for x in xs]
+    bot = [(x - ox, rail_y(x, bend) + 70 - oy) for x in xs]
+    d.polygon(top + bot[::-1], fill=(52, 56, 62, 255))
+    d.line(top, fill=(90, 96, 104, 255), width=8)
+    # lattice
+    for i in range(len(xs) - 1):
+        a, b = top[i], bot[i + 1]
+        d.line((a, b), fill=(30, 32, 36, 255), width=5)
+        d.line((bot[i], top[i + 1]), fill=(30, 32, 36, 255), width=5)
+    for x in range(60, PW, 330):
+        yb = rail_y(x, bend) + 70
+        dx = bend * 60 * math.exp(-((x - PW * 0.62) / 260) ** 2)
+        d.polygon([(x - 16 - ox, yb - oy), (x + 16 - ox, yb - oy), (x + 16 + dx - ox, GROUND - oy), (x - 16 + dx - ox, GROUND - oy)], fill=(44, 46, 52, 255))
+
+# ====================================================================== props
+def wave_poly(front, H, t, base=GROUND, x_start=-80):
+    pts = []
+    xs = np.linspace(x_start, front, 40)
+    for x in xs:
+        u = clamp01((x - x_start) / max(1, front - x_start))
+        h = H * (0.42 + 0.5 * u ** 1.6) + 18 * math.sin(x / 70 + t * 5) + 10 * math.sin(x / 31 - t * 7)
+        pts.append((x, base - h))
+    # curling lip
+    pts += [(front + 0.16 * H, base - H * 0.98), (front + 0.30 * H, base - H * 0.84), (front + 0.30 * H, base - H * 0.68),
+            (front + 0.20 * H, base - H * 0.62), (front + 0.17 * H, base - H * 0.42), (front + 0.30 * H, base - H * 0.16),
+            (front + 0.46 * H, base + 6)]
+    return [(x_start, base + 12)] + pts + [(x_start, base + 12)]
+
+def draw_wave(img, front, H, t, base=GROUND, drops=True, x_start=-80):
+    poly = wave_poly(front, H, t, base, x_start)
+    x0 = min(p[0] for p in poly) - 60; x1 = max(p[0] for p in poly) + 140
+    y0 = min(p[1] for p in poly) - 140; y1 = base + 40
+    ov = OV(img, x0, y0, x1, y1)
+    ov.d.polygon(ov.pts(poly), fill=MOL + (255,))
+    # glossy bands following the crest
+    top = poly[1:41]
+    for k, (dy, col, w) in enumerate(((14, MOL_HI + (230,), 16), (60, (110, 56, 20, 160), 10), (130, (90, 46, 16, 120), 8))):
+        ov.d.line(ov.pts([(x, y + dy) for x, y in top]), fill=col, width=w, joint='curve')
+    lip = poly[41:45]
+    ov.d.line(ov.pts(lip), fill=(200, 120, 50, 220), width=12, joint='curve')
+    # specular streaks
+    rng = np.random.default_rng(4)
+    for k in range(10):
+        sx = x_start + (front - x_start) * rng.uniform(0.1, 0.95)
+        sy = base - H * rng.uniform(0.15, 0.4)
+        ln = rng.uniform(40, 110)
+        ov.d.line(ov.pts([(sx + (t * 60) % 40, sy), (sx + ln + (t * 60) % 40, sy - 6)]), fill=(255, 220, 170, 90), width=6)
+    if drops:
+        for k in range(16):
+            ph = (t * 1.4 + k * 0.137) % 1.0
+            ang = -math.pi * (0.15 + 0.6 * ((k * 0.61) % 1))
+            r0 = 30 + 260 * ph
+            cx = front + 0.2 * H + r0 * math.cos(ang) * 0.9
+            cy = base - H * 0.92 + r0 * math.sin(ang) + 520 * ph * ph
+            rr = (22 - 12 * ph) * (0.6 + (k % 3) * 0.3)
+            ov.d.ellipse(ov.box(cx - rr, cy - rr, cx + rr, cy + rr), fill=MOL + (255,))
+            ov.d.ellipse(ov.box(cx - rr * 0.5, cy - rr * 0.6, cx - rr * 0.05, cy - rr * 0.15), fill=(200, 120, 60, 200))
     ov.commit()
 
-def corner_glow(img, cx, cy, w, h, a, r=150):
-    for sx in (-1, 1):
-        for sy in (-1, 1):
-            glow(img, cx + sx * w / 2, cy + sy * h / 2, r, (255, 50, 30), a)
-
-def gauge_sprite(R=170):
-    if ('gauge', R) in _SP:
-        return _SP[('gauge', R)]
-    im = Image.new('RGBA', (2 * R + 20, 2 * R + 20), (0, 0, 0, 0))
-    d = ImageDraw.Draw(im)
-    c = R + 10
-    d.ellipse((c - R, c - R, c + R, c + R), fill=(60, 64, 72, 255))
-    d.ellipse((c - R * 0.88, c - R * 0.88, c + R * 0.88, c + R * 0.88), fill=(240, 238, 230, 255))
-    for k in range(11):
-        a = math.radians(225 - k * 27)
-        r0, r1 = R * 0.68, R * 0.82
-        col = (200, 40, 40, 255) if k >= 8 else (40, 40, 46, 255)
-        d.line((c + r0 * math.cos(a), c - r0 * math.sin(a), c + r1 * math.cos(a), c - r1 * math.sin(a)), fill=col, width=7)
-    f = font(int(R * 0.2))
-    d.text((c, c + R * 0.45), 'PRESSURE', font=f, fill=(40, 40, 46, 255), anchor='mm')
-    _SP[('gauge', R)] = im
-    return im
-
-def draw_gauge(img, cx, cy, val, R=170):
-    paste_center(img, gauge_sprite(R), cx, cy)
-    a = math.radians(225 - val * 270)
-    ov = OV(img, cx - R, cy - R, cx + R, cy + R)
-    ov.d.line(ov.pts([(cx, cy), (cx + R * 0.72 * math.cos(a), cy - R * 0.72 * math.sin(a))]), fill=(200, 30, 30, 255), width=10)
-    ov.d.ellipse(ov.box(cx - 18, cy - 18, cx + 18, cy + 18), fill=(40, 40, 46, 255))
-    ov.commit()
-
-def check_badge(R=90, ok=True):
-    key = ('chk', R, ok)
+def tank_sprite(w=620, h=700, leaks=0.0, paint=0.0, fill=None, crack=0.0):
+    key = ('tank', w, h, round(leaks, 2), round(paint, 2), None if fill is None else round(fill, 3), round(crack, 2))
     if key in _SP:
         return _SP[key]
-    im = Image.new('RGBA', (2 * R + 10, 2 * R + 10), (0, 0, 0, 0))
+    pad = 60
+    lay = Layer(w + pad * 2, h + pad * 2)
+    W_, H_ = w + pad * 2, h + pad * 2
+    im = Image.new('RGBA', (W_, H_), (0, 0, 0, 0))
     d = ImageDraw.Draw(im)
-    c = R + 5
-    d.ellipse((5, 5, 5 + 2 * R, 5 + 2 * R), fill=((60, 180, 90) if ok else (210, 50, 45)) + (255,))
-    if ok:
-        d.line([(c - R * 0.45, c + R * 0.02), (c - R * 0.1, c + R * 0.38), (c + R * 0.5, c - R * 0.35)], fill=WHITE + (255,), width=int(R * 0.22), joint='curve')
-    else:
-        k = R * 0.42
-        d.line((c - k, c - k, c + k, c + k), fill=WHITE + (255,), width=int(R * 0.22))
-        d.line((c - k, c + k, c + k, c - k), fill=WHITE + (255,), width=int(R * 0.22))
+    # cylinder shading
+    xs = np.linspace(-1, 1, w)
+    shade = 0.55 + 0.45 * np.sqrt(np.clip(1 - xs ** 2, 0, 1)) - 0.15 * xs
+    steel = np.array([150, 156, 160], np.float32)
+    brown = np.array([96, 56, 28], np.float32)
+    col = steel * (1 - paint) + brown * paint
+    body = np.clip(col[None, None, :] * shade[None, :, None] * np.ones((h, 1, 1)), 0, 255).astype(np.uint8)
+    bi = Image.fromarray(body, 'RGB').convert('RGBA')
+    m = Image.new('L', (w, h), 0)
+    ImageDraw.Draw(m).rounded_rectangle((0, 0, w - 1, h - 1), 18, fill=255)
+    bi.putalpha(m)
+    im.alpha_composite(bi, (pad, pad))
+    # cutaway level
+    if fill is not None:
+        fy = pad + h - (h - 30) * fill
+        d.rectangle((pad + 30, pad + 30, pad + w - 30, pad + h - 30), fill=(30, 34, 40, 255))
+        d.rectangle((pad + 30, fy, pad + w - 30, pad + h - 30), fill=MOL + (255,))
+        d.line((pad + 30, fy, pad + w - 30, fy), fill=MOL_HI + (255,), width=10)
+    # roof
+    d.pieslice((pad - 10, pad - 90, pad + w + 10, pad + 90), 180, 360, fill=tuple(int(c * 0.8) for c in col) + (255,))
+    # seams + rivets
+    for k in range(1, 6):
+        y = pad + h * k / 6
+        d.line((pad, y, pad + w, y), fill=(0, 0, 0, 70), width=5)
+        for x in range(pad + 20, pad + w - 10, 36):
+            d.ellipse((x - 5, y + 8, x + 5, y + 18), fill=(0, 0, 0, 60))
+            d.ellipse((x - 4, y + 8, x + 1, y + 13), fill=(255, 255, 255, 60))
+    # leak streaks
+    if leaks > 0:
+        rng = np.random.default_rng(8)
+        for k in range(9):
+            sx = pad + rng.uniform(0.1, 0.9) * w
+            sy = pad + h * rng.uniform(0.15, 0.6)
+            L = (pad + h - sy) * leaks * rng.uniform(0.6, 1.0)
+            a = int(255 * (1 - paint))
+            if a > 8:
+                d.line((sx, sy, sx, sy + L), fill=MOL + (a,), width=12)
+                d.ellipse((sx - 10, sy + L - 8, sx + 10, sy + L + 14), fill=MOL + (a,))
+    if crack > 0:
+        rng = np.random.default_rng(2)
+        x, y = pad + w * 0.55, pad + h * 0.2
+        pts = [(x, y)]
+        for k in range(9):
+            x += rng.uniform(-40, 40)
+            y += h * 0.085 * crack
+            pts.append((x, y))
+        d.line(pts, fill=(20, 10, 6, 255), width=int(10 + 30 * crack), joint='curve')
     _SP[key] = im
     return im
 
-def puff(img, x, y, r, a=0.6, col=(90, 90, 96)):
-    ov = OV(img, x - r - 20, y - r - 20, x + r + 20, y + r + 20)
-    ov.d.ellipse(ov.box(x - r, y - r, x + r, y + r), fill=col + (int(255 * a),))
-    ov.im = ov.im.filter(ImageFilter.GaussianBlur(r * 0.25))
+def house_sprite(w=300, h=380, col=(176, 96, 66)):
+    key = ('house', w, h, col)
+    if key in _SP:
+        return _SP[key]
+    im = Image.new('RGBA', (w + 20, h + 120), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    d.polygon([(0, 110), (w // 2 + 10, 0), (w + 20, 110)], fill=(70, 48, 40, 255))
+    d.rectangle((10, 110, w + 10, h + 110), fill=col + (255,))
+    for wy in range(150, h + 20, 110):
+        for wx in (40, w - 70):
+            d.rectangle((wx, wy, wx + 50, wy + 70), fill=(46, 52, 66, 255))
+            d.rectangle((wx, wy, wx + 50, wy + 8), fill=(220, 210, 190, 255))
+    d.rectangle((w // 2 - 20, h + 30, w // 2 + 40, h + 110), fill=(60, 40, 30, 255))
+    _SP[key] = im
+    return im
+
+def speedo(img, cx, cy, val, R=210):
+    ov = OV(img, cx - R - 10, cy - R - 10, cx + R + 10, cy + R + 10)
+    ov.d.ellipse(ov.box(cx - R, cy - R, cx + R, cy + R), fill=(40, 42, 50, 255))
+    ov.d.ellipse(ov.box(cx - R * 0.9, cy - R * 0.9, cx + R * 0.9, cy + R * 0.9), fill=(245, 242, 232, 255))
+    for k in range(9):
+        a = math.radians(225 - k * 33.75)
+        col = (210, 40, 40, 255) if k >= 6 else (40, 40, 46, 255)
+        ov.d.line(ov.pts([(cx + R * 0.66 * math.cos(a), cy - R * 0.66 * math.sin(a)), (cx + R * 0.84 * math.cos(a), cy - R * 0.84 * math.sin(a))]), fill=col, width=9)
+    a = math.radians(225 - val * 270)
+    ov.d.line(ov.pts([(cx, cy), (cx + R * 0.74 * math.cos(a), cy - R * 0.74 * math.sin(a))]), fill=(210, 30, 30, 255), width=12)
+    ov.d.ellipse(ov.box(cx - 22, cy - 22, cx + 22, cy + 22), fill=(40, 40, 46, 255))
+    ov.commit()
+    paste_center(img, text_img('MPH', int(R * 0.22), fill=(40, 40, 46)), cx, cy + R * 0.48)
+
+def person_icon(h=110, col=(240, 240, 240)):
+    key = ('person', h, col)
+    if key in _SP:
+        return _SP[key]
+    w = int(h * 0.56)
+    im = Image.new('RGBA', (w, h), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    d.ellipse((w * 0.28, 0, w * 0.72, h * 0.3), fill=col + (255,))
+    d.rounded_rectangle((w * 0.08, h * 0.34, w * 0.92, h), radius=int(w * 0.3), fill=col + (255,))
+    _SP[key] = im
+    return im
+
+def snow(img, t, n=60, seed=3, y1=PH):
+    ov = OV(img, 0, 0, PW, y1)
+    rng = np.random.default_rng(seed)
+    for k in range(n):
+        x0 = rng.uniform(0, PW); sp = rng.uniform(120, 260); r = rng.uniform(5, 12)
+        y = (rng.uniform(0, y1) + t * sp) % y1
+        x = x0 + 30 * math.sin(t * 1.5 + k)
+        ov.d.ellipse(ov.box(x - r, y - r, x + r, y + r), fill=(255, 255, 255, 210))
     ov.commit()
 
-def place_jet(img, sp, cx, cy, ang=0.0, scale=1.0):
-    rs = sp.rotate(ang, resample=Image.BICUBIC, expand=True) if abs(ang) > 0.05 else sp
-    paste_center(img, rs, cx, cy, scale=scale)
+def thermo(img, cx, cy, level, H=520):
+    ov = OV(img, cx - 90, cy - H / 2 - 20, cx + 90, cy + H / 2 + 100)
+    ov.d.rounded_rectangle(ov.box(cx - 40, cy - H / 2, cx + 40, cy + H / 2), 40, fill=(245, 245, 250, 255), outline=(60, 64, 72, 255), width=8)
+    ov.d.ellipse(ov.box(cx - 75, cy + H / 2 - 40, cx + 75, cy + H / 2 + 90), fill=(60, 120, 220, 255), outline=(60, 64, 72, 255), width=8)
+    top = cy + H / 2 - 20 - (H - 60) * level
+    ov.d.rectangle(ov.box(cx - 20, top, cx + 20, cy + H / 2), fill=(60, 120, 220, 255))
+    for k in range(6):
+        y = cy - H / 2 + 50 + k * (H - 100) / 5
+        ov.d.line(ov.pts([(cx + 40, y), (cx + 70, y)]), fill=(60, 64, 72, 255), width=6)
+    ov.commit()
+
+def brush_hand(img, hand, tip, ang_deg=0):
+    # wooden mannequin hand holding a paint brush whose bristles sit at `tip`
+    bx, by = tip
+    ov = OV(img, bx - 60, by - 40, bx + 360, by + 260)
+    ov.d.line(ov.pts([(bx + 40, by + 30), (bx + 330, by + 230)]), fill=(150, 96, 50, 255), width=26)
+    ov.d.polygon(ov.pts([(bx - 10, by - 20), (bx + 50, by + 10), (bx + 30, by + 50), (bx - 40, by + 20)]), fill=(180, 180, 186, 255))
+    ov.d.polygon(ov.pts([(bx - 40, by - 30), (bx - 5, by - 18), (bx - 45, by + 28), (bx - 70, by + 5)]), fill=BROWN + (255,))
+    ov.commit()
+    draw_hand(img, hand, (bx + 210, by + 130), 0.0)
 
 # ====================================================================== scenes
-WIN_W, WIN_H = 560, 600
-WIN_CY = 900
-
 class Hook(S):
-    z0, z1 = 1.05, 1.16
-    focus = (CX, 960)
-    punch = 0.0
+    z0, z1 = 1.12, 1.2
+    focus = (CX, 1000)
+    punch = 0.08
     def make_shakes(self):
-        return [(self.we('ripped'), 26, 0.45), (self.we('APART'), 16, 0.35)]
+        return [(0.0, 14, 0.5), (self.we('swallowed'), 26, 0.5)]
     def events(self):
-        return [(0.02, 'crack', 0.8), (self.we('SHAPE') - 0.05, 'thud', 0.6), (self.we('ripped'), 'boom', 0.9), (self.we('first') - 0.05, 'pop', 0.5)]
+        return [(0.02, 'boom', 0.9), (self.we('MOLASSES') - 0.05, 'splat', 0.8), (self.we('swallowed'), 'thud', 0.8)]
     def plate(self):
-        self.win = window_sprite(WIN_W, WIN_H, 0.06)
-        self.paths = crack_paths(CX, WIN_CY, WIN_W + 60, WIN_H + 60, seed=5, n_per=2, length=560)
-        self.stamp = stamp_sprite('TORN APART', 120, color=(225, 35, 35), angle=-7)
+        self.stamp = stamp_sprite('MOLASSES', 130, color=(225, 35, 35), angle=-7)
         bg = Image.new('RGBA', self.stamp.size, (0, 0, 0, 0))
-        ImageDraw.Draw(bg).rounded_rectangle((26, 26, self.stamp.width - 26, self.stamp.height - 26), 30, fill=(255, 250, 240, 225))
+        ImageDraw.Draw(bg).rounded_rectangle((26, 26, self.stamp.width - 26, self.stamp.height - 26), 30, fill=(255, 250, 240, 230))
         bg.alpha_composite(self.stamp)
         self.stamp = bg
-        return skin_plate()
+        return street_plate('winter')
     def dyn(self, img, t):
-        tR = self.we('ripped') - 0.04
-        # split the skin apart after "ripped"
-        sep = 0.0 if t < tR else 70 * ease_out((t - tR) / 0.35)
-        pulse = 0.55 + 0.35 * math.sin(t * 9)
-        corner_glow(img, CX, WIN_CY, WIN_W + 60, WIN_H + 60, pulse, 170)
-        paste_center(img, self.win, CX, WIN_CY)
-        prog = 0.6 + 0.4 * ease_out(t / max(0.1, tR))
-        draw_cracks(img, self.paths, min(1, prog), 10)
-        if sep > 0:
-            # jagged dark rift opening through the window
-            ov = OV(img, 0, WIN_CY - 260, PW, WIN_CY + 260)
-            rng = np.random.default_rng(9)
-            xs = np.linspace(0, PW, 18)
-            top = [(x, WIN_CY - sep / 2 + rng.uniform(-30, 30)) for x in xs]
-            bot = [(x, WIN_CY + sep / 2 + rng.uniform(-30, 30)) for x in xs[::-1]]
-            ov.d.polygon(ov.pts(top + bot), fill=(14, 18, 30, 255))
-            ov.commit()
-        pop(img, C('SQUARE WINDOWS', 56, bg=YEL), CX, 300, t, -1.0, out_t=self.we('first') - 0.15)
-        pop(img, C('THE FIRST JET AIRLINER', 50, dot=GOLD), CX, 300, t, self.we('first') - 0.05)
-        stamp_in(img, self.stamp, CX, WIN_CY, t, self.we('APART') - 0.05)
+        front = 640 + 210 * ease_out(t / 1.2) + 60 * t
+        draw_wave(img, front, 900 + 40 * math.sin(t * 3), t)
+        pop(img, C('25-FOOT WAVE', 72, bg=YEL), CX, 300, t, -1.0)
+        stamp_in(img, self.stamp, CX, 560, t, self.we('MOLASSES') - 0.05)
+        pop(img, C('BOSTON', 52, bg=DARK, fg=WHITE), CX + 330, 1180, t, self.we('Boston') - 0.05)
 
-class Comet(S):
-    z0, z1 = 1.0, 1.08
-    def make_shakes(self):
-        return [(self.we('1952'), 12, 0.3)]
-    def events(self):
-        return [(0.05, 'wind', 0.6), (self.we('1952'), 'thud', 0.8), (self.we('COMET') - 0.05, 'pop', 0.6), (self.we('flying'), 'ding', 0.6)]
-    def plate(self):
-        self.jet, _, _ = jet_sprite(1050)
-        self.stamp = stamp_sprite('1952', 150, color=(200, 40, 40), angle=-7)
-        self.hand = get_hand(520, -math.pi / 2.3)
-        return sky_plate('day', 2)
-    def dyn(self, img, t):
-        stamp_in(img, self.stamp, CX, 320, t, self.we('1952'))
-        u = t / self.dur
-        x = CX + 120 - 240 * u
-        y = 930 + 14 * math.sin(t * 2.2)
-        for k in range(3):
-            yy = y - 30 + k * 30
-            ov = OV(img, x - 1000, yy - 10, x - 380, yy + 10)
-            ov.d.line(ov.pts([(x - 1000, yy), (x - 420, yy)]), fill=(255, 255, 255, 90), width=6)
-            ov.commit()
-        place_jet(img, self.jet, x, y, -2)
-        pop(img, C('DE HAVILLAND COMET', 50, dot=GOLD), CX, 520, t, self.we('de') - 0.05)
-        tp = self.we('flying') - 0.05
-        pop(img, C('PASSENGERS BY JET!', 50, bg=YEL), CX, 1200, t, tp)
-
-class Elba(S):
-    z0, z1 = 1.04, 1.12
-    def make_shakes(self):
-        return [(self.we('1954'), 10, 0.3), (self.we('broke'), 24, 0.45)]
-    def events(self):
-        return [(self.we('1954'), 'thud', 0.8), (self.we('broke'), 'crack', 0.9), (self.we('broke') + 0.1, 'boom', 0.7), (self.we('near') - 0.05, 'pop', 0.5)]
-    def plate(self):
-        self.jet, _, _ = jet_sprite(950)
-        self.rear, self.front, self.cut = jet_halves(950, 0.5)
-        self.stamp = stamp_sprite('1954', 150, color=(200, 40, 40), angle=-7)
-        img = sky_plate('storm', 3, sea=True)
-        d = ImageDraw.Draw(img, 'RGBA')
-        d.polygon([(860, 1302), (930, 1262), (1010, 1250), (1090, 1270), (1160, 1302)], fill=(40, 70, 50, 255))
-        return img
-    def dyn(self, img, t):
-        stamp_in(img, self.stamp, CX, 320, t, self.we('1954'))
-        tb = self.we('broke') - 0.05
-        y0 = 860
-        if t < tb:
-            place_jet(img, self.jet, CX + 40 - 60 * t, y0 + 8 * math.sin(t * 3))
-        else:
-            q = t - tb
-            e = ease_out(q / 0.6)
-            cx = CX + 40 - 60 * tb
-            w = self.jet.width
-            # halves drift apart and tumble
-            place_jet(img, self.rear, cx - 90 * e - 40 * q, y0 + 130 * q * q + 40 * e, 10 * e + 6 * q)
-            place_jet(img, self.front, cx + 90 * e + 40 * q, y0 + 160 * q * q + 30 * e, -12 * e - 8 * q)
-            for k in range(5):
-                puff(img, cx + (k - 2) * 26, y0 + 10 * k - 30 * q, 30 + 70 * e + 10 * k, 0.5 * (1 - clamp01(q / 2.5)))
-        pop(img, C('NEAR ELBA, ITALY', 46, bg=WHITE), 1010, 1150, t, self.we('near') - 0.05)
-        pop(img, C('ALL 35 ON BOARD LOST', 50, bg=DARK, fg=WHITE), CX, 520, t, self.we('killing') - 0.05)
-
-class Another(S):
-    z0, z1 = 1.0, 1.08
-    def make_shakes(self):
-        return [(self.we('ANOTHER'), 14, 0.3), (self.we('sea') + 0.1, 12, 0.3)]
-    def events(self):
-        return [(0.05, 'tick', 0.5), (self.we('ANOTHER'), 'thud', 0.8), (self.we('fell'), 'riser', 0.5), (self.we('sea'), 'splat', 0.8), (self.we('21') - 0.05, 'pop', 0.4)]
-    def plate(self):
-        self.jet, _, _ = jet_sprite(820)
-        return sky_plate('dusk', 6, sea=True, hz=1120)
-    def dyn(self, img, t):
-        pop(img, C('MONTHS LATER...', 48, bg=DARK, fg=WHITE), CX, 300, t, 0.0, out_t=self.we('ANOTHER') - 0.1)
-        pop(img, C('A SECOND COMET', 52, bg=YEL), CX, 300, t, self.we('ANOTHER') - 0.05)
-        tf = self.we('fell') - 0.1
-        ts = self.we('sea') + 0.05
-        if t < tf:
-            place_jet(img, self.jet, CX - 40 + 30 * t, 700)
-        else:
-            u = clamp01((t - tf) / max(0.2, ts - tf))
-            x = CX - 40 + 30 * tf + 220 * u
-            y = 700 + 420 * ease_in_out(u) ** 1.4
-            if t < ts + 0.05:
-                place_jet(img, self.jet, x, y, -32 * u)
-                puff(img, x - 200, y - 120 * u, 50, 0.4)
-            if t > ts - 0.05:
-                q = clamp01((t - ts + 0.05) / 0.6)
-                ov = OV(img, x - 400, 700, x + 400, 1160)
-                for k in range(9):
-                    a = math.pi * (0.1 + 0.8 * k / 8)
-                    L = 330 * ease_out(q) * (0.6 + 0.4 * (k % 2))
-                    ov.d.line(ov.pts([(x, 1120), (x - L * math.cos(a), 1120 - L * math.sin(a))]), fill=(235, 245, 255, int(230 * (1 - q * 0.6))), width=22)
-                ov.commit()
-        pop(img, C('21 PEOPLE LOST', 52, bg=DARK, fg=WHITE), CX, 520, t, self.we('21') - 0.05)
-
-class Tank(S):
-    z0, z1 = 1.02, 1.1
-    def make_shakes(self):
-        return [(self.we('GROUNDED'), 16, 0.35)]
-    def events(self):
-        return [(self.we('GROUNDED'), 'thud', 0.9), (self.we('engineers') - 0.05, 'pop', 0.5), (self.we('sank'), 'splat', 0.8), (self.we('WATER'), 'bloop', 0.7)]
-    def plate(self):
-        self.jet, _, _ = jet_sprite(900)
-        self.fus, _, _ = jet_sprite(820, windows='square')
-        self.stamp = stamp_sprite('GROUNDED', 140, color=(225, 35, 35), angle=-8)
-        self.tarmac = tarmac_plate()
-        return hangar_plate()
-    def dyn(self, img, t):
-        te = self.we('engineers') - 0.1
-        if t < te:
-            img.paste(self.tarmac, (0, 0))
-            ground_shadow(img, CX, 1250, 820, 0.5)
-            place_jet(img, self.jet, CX, 1250 - self.jet.height * 0.42)
-            stamp_in(img, self.stamp, CX, 640, t, self.we('GROUNDED') - 0.05)
-            pop(img, C('EVERY COMET', 50, dot=GOLD), CX, 300, t, 0.0)
-            return
-        pop(img, C('ENGINEERS', 50, dot=GOLD), CX, 300, t, te)
-        # tank
-        tx0, tx1, ty0, ty1 = 130, PW - 130, 560, 1300
-        ov = OV(img, tx0 - 20, ty0 - 20, tx1 + 20, ty1 + 20)
-        ov.d.rectangle(ov.box(tx0 - 16, ty0 - 16, tx1 + 16, ty1 + 16), fill=(70, 76, 86, 255))
-        ov.d.rectangle(ov.box(tx0, ty0, tx1, ty1), fill=(18, 26, 34, 255))
-        ov.commit()
-        ts = self.we('sank') - 0.05
-        sink = ease_in_out(clamp01((t - ts) / 0.8))
-        fy = 520 + 420 * sink
-        place_jet(img, self.fus, CX, fy)
-        tw = self.we('WATER') - 0.05
-        fill = 0.25 + 0.75 * ease_out(clamp01((t - ts) / 1.2))
-        wy = ty1 - (ty1 - ty0 - 40) * fill
-        ov = OV(img, tx0, ty0, tx1, ty1)
-        ov.d.rectangle(ov.box(tx0, wy, tx1, ty1), fill=(60, 150, 210, 120))
-        ov.d.line(ov.pts([(tx0, wy), (tx1, wy)]), fill=(200, 235, 255, 200), width=6)
-        ov.commit()
-        pop(img, C('A GIANT WATER TANK', 52, bg=YEL), CX, 440, t, tw)
-
-class Pressure(S):
-    z0, z1 = 1.04, 1.12
+class Burst(S):
+    z0, z1 = 1.0, 1.1
     focus = (CX, 1000)
+    def make_shakes(self):
+        return [(self.we('1919'), 10, 0.3), (self.we('BURST'), 30, 0.5)]
     def events(self):
-        return [(0.05, 'bloop', 0.6), (self.we('again'), 'tick', 0.6), (self.we('and') + 0.05, 'tick', 0.6), (self.we('THOUSANDS') - 0.05, 'riser', 0.6), (self.we('like'), 'bloop', 0.5)]
+        return [(0.05, 'wind', 0.5), (self.we('1919'), 'thud', 0.8), (self.we('North') - 0.05, 'pop', 0.5), (self.we('BURST') - 0.03, 'crack', 1.0), (self.we('BURST') + 0.08, 'boom', 0.8)]
     def plate(self):
-        self.fus, _, _ = jet_sprite(900)
-        self.icon, _, _ = jet_sprite(110)
-        img = hangar_plate()
-        d = ImageDraw.Draw(img, 'RGBA')
-        tx0, tx1, ty0, ty1 = 130, PW - 130, 560, 1300
-        d.rectangle((tx0 - 16, ty0 - 16, tx1 + 16, ty1 + 16), fill=(70, 76, 86, 255))
-        d.rectangle((tx0, ty0, tx1, ty1), fill=(40, 100, 140, 255))
-        d.line((tx0, ty0 + 40, tx1, ty0 + 40), fill=(200, 235, 255, 200), width=6)
-        return img
+        self.stamp = stamp_sprite('JAN 1919', 140, color=(200, 40, 40), angle=-7)
+        return street_plate('winter', rail=False, seed=5)
     def dyn(self, img, t):
-        ph = (math.sin(t * 2 * math.pi * 1.6) + 1) / 2
-        place_jet(img, self.fus, CX, 940, scale=1.0 + 0.05 * ph)
-        for k in range(4):
-            by = 1250 - ((t * 260 + k * 170) % 600)
-            puff(img, 260 + k * 250, by, 16, 0.5, (210, 240, 255))
-        draw_gauge(img, PW - 280, 1180, 0.2 + 0.7 * ph, 120)
-        pop(img, C('PRESSURE UP... AND DOWN', 46, bg=WHITE), CX, 300, t, 0.05, out_t=self.we('like') - 0.15)
-        tT = self.we('THOUSANDS') - 0.05
-        pop(img, C('LIKE THOUSANDS OF FLIGHTS', 46, bg=YEL), CX, 300, t, self.we('like') - 0.05)
-        if t > tT:
-            n = int(clamp01((t - tT) / 0.9) * 18)
-            for k in range(n):
-                paste_center(img, self.icon, 150 + (k % 9) * 125, 405 + (k // 9) * 62)
+        snow(img, t, 40, 1, GROUND)
+        tB = self.we('BURST') - 0.05
+        cr = 0.0 if t < tB else ease_out((t - tB) / 0.25)
+        tk = tank_sprite(620, 700, leaks=0.3, crack=cr)
+        cy = 1300 - 760 / 2 - 30
+        ground_shadow(img, CX, GROUND, 700, 0.5)
+        paste_center(img, tk, CX + (8 * math.sin(t * 60) if t > tB else 0), cy)
+        if t > tB:
+            q = t - tB
+            # jets of molasses spraying out of the split
+            ov = OV(img, 0, 300, PW, GROUND + 30)
+            for k in range(7):
+                ang = math.radians(-160 + k * 23)
+                L = 200 + 650 * ease_out(q / 0.6)
+                x0, y0 = CX + 30, cy - 120 + k * 50
+                pts = [(x0 + L * u * math.cos(ang) * 0.9, y0 + L * u * math.sin(ang) * 0.4 + 400 * (u * q) ** 2) for u in np.linspace(0, 1, 10)]
+                for j, (x, y) in enumerate(pts):
+                    r = 44 - 3 * j + 6 * math.sin(t * 20 + j + k)
+                    ov.d.ellipse(ov.box(x - r, y - r * 0.8, x + r, y + r * 0.8), fill=MOL + (255,))
+                    ov.d.ellipse(ov.box(x - r * 0.5, y - r * 0.6, x, y - r * 0.2), fill=MOL_HI + (200,))
+            ov.commit()
+            draw_wave(img, CX - 300 + 500 * ease_out(q / 0.8), 220 + 260 * ease_out(q / 0.8), t, drops=False, x_start=CX - 420)
+        stamp_in(img, self.stamp, CX, 300, t, self.we('1919'))
+        pop(img, C("BOSTON'S NORTH END", 50, dot=GOLD), CX, 520, t, self.we('North') - 0.05, out_t=tB)
+        pop(img, C('BURST!', 70, bg=RED, fg=WHITE), CX, 520, t, tB)
 
-class Split(S):
-    z0, z1 = 1.06, 1.2
+class Gallons(S):
+    z0, z1 = 1.02, 1.12
     focus = (CX, 960)
+    def events(self):
+        return [(0.05, 'bloop', 0.6), (self.we('2.3') - 0.05, 'riser', 0.6), (self.we('MILLION'), 'bigpop', 0.8), (self.we('sticky'), 'splat', 0.6)]
+    def plate(self):
+        return plate_img(dark_room('#3A3230', '#120E0C', spot=(CX, 900, 1100)))
+    def dyn(self, img, t):
+        t2 = self.we('2.3') - 0.05
+        f = 0.15 + 0.8 * ease_out(clamp01((t - 0.0) / max(0.3, self.we('MILLION') + 0.3)))
+        tk = tank_sprite(640, 760, fill=round(f * 40) / 40)
+        paste_center(img, tk, CX, 900)
+        # counter
+        u = ease_out(clamp01((t - t2) / max(0.2, self.we('gallons') - t2)))
+        n = int(2300000 * u / 1000) * 1000 if u < 1 else 2300000
+        if t > t2:
+            paste_center(img, text_img(f'{n:,}', 120, fill=YEL, stroke=10, shadow_px=6), CX, 300)
+        pop(img, C('GALLONS OF MOLASSES', 52, bg=WHITE), CX, 470, t, self.we('gallons') - 0.05)
+        pop(img, C('THICK + STICKY', 50, bg=(150, 78, 26), fg=WHITE), CX, 1220, t, self.we('thick') - 0.05)
+        # slow drip
+        dy = (t * 220) % 260
+        ov = OV(img, CX - 40, 1270, CX + 40, 1290 + 300)
+        ov.d.ellipse(ov.box(CX - 18, 1280 + dy, CX + 18, 1320 + dy), fill=MOL + (255,))
+        ov.commit()
+
+class Speed(S):
+    z0, z1 = 1.04, 1.14
+    focus = (CX, 1000)
+    def make_shakes(self):
+        return [(self.we('HOUR'), 16, 0.4)]
+    def events(self):
+        return [(0.05, 'swipe', 0.6), (self.we('raced'), 'wind', 0.7), (self.we('35') - 0.05, 'riser', 0.6), (self.we('miles'), 'thud', 0.7)]
+    def plate(self):
+        return street_plate('winter', rail=True, seed=1)
+    def dyn(self, img, t):
+        front = 60 + 1000 * (t / self.dur)
+        ov = OV(img, 0, 400, PW, GROUND)
+        for k in range(8):
+            y = 520 + k * 90
+            x = (front - 200 - (t * 1600 + k * 260) % 700)
+            ov.d.line(ov.pts([(x - 380, y), (x, y)]), fill=(255, 255, 255, 120), width=8)
+        ov.commit()
+        draw_wave(img, front, 640, t)
+        t35 = self.we('35') - 0.05
+        v = 0.1 + 0.55 * ease_out(clamp01((t - t35) / 0.5)) + 0.02 * math.sin(t * 30) * (t > t35)
+        speedo(img, PW - 300, 560, v, 190)
+        if t > t35:
+            pop(img, C('~35 MPH', 70, bg=YEL), 380, 420, t, t35)
+        pop(img, C('FASTER THAN YOU CAN RUN', 44, bg=DARK, fg=WHITE), CX, 1200, t, self.we('miles') - 0.05)
+
+class Wreck(S):
+    z0, z1 = 1.02, 1.12
+    focus = (CX, 1000)
+    def make_shakes(self):
+        return [(self.we('knocked'), 22, 0.45), (self.we('ELEVATED'), 22, 0.45)]
+    def events(self):
+        return [(self.we('knocked'), 'boom', 0.8), (self.we('foundations') - 0.05, 'thud', 0.6), (self.we('bent') - 0.03, 'crack', 0.9), (self.we('ELEVATED') - 0.05, 'pop', 0.5)]
+    def plate(self):
+        self.house = house_sprite(300, 400)
+        return street_plate('winter', rail=False, seed=9)
+    def dyn(self, img, t):
+        tk = self.we('knocked') - 0.05
+        tb = self.we('bent') - 0.05
+        bend = ease_out(clamp01((t - tb) / 0.4))
+        ov = OV(img, 0, RAIL_Y - 40, PW, GROUND + 4)
+        draw_rail(ov.d, bend, (0, RAIL_Y - 40))
+        ov.commit()
+        q = clamp01((t - tk) / 0.7)
+        hx = 820 + 160 * ease_out(q)
+        ang = -14 * ease_out(q)
+        rs = self.house.rotate(ang, resample=Image.BICUBIC, expand=True)
+        paste_center(img, rs, hx, GROUND - 250 + 30 * ease_out(q))
+        front = 250 + 500 * ease_out(clamp01(t / max(0.3, tk + 0.4)))
+        draw_wave(img, front, 520, t)
+        pop(img, C('OFF THEIR FOUNDATIONS', 48, bg=WHITE), CX, 300, t, self.we('foundations') - 0.1, out_t=tb - 0.1)
+        pop(img, C('ELEVATED RAILWAY BENT', 48, bg=RED, fg=WHITE), CX, 300, t, tb)
+
+class Twist(S):
+    z0, z1 = 1.04, 1.14
+    focus = (CX, 1000)
     punch = 0.18
     def make_shakes(self):
-        return [(self.we('SPLIT'), 28, 0.45)]
+        return [(self.we('twist'), 14, 0.35)]
     def events(self):
-        return [(self.we('SPLIT') - 0.03, 'crack', 1.0), (self.we('SPLIT') + 0.05, 'boom', 0.6), (self.we('window') - 0.05, 'ding', 0.7)]
+        return [(self.we('twist') - 0.05, 'scratch', 0.8), (self.we('LEAKED') - 0.05, 'bloop', 0.7), (self.we('painted') - 0.05, 'swipe', 0.7), (self.we('BROWN'), 'thud', 0.8)]
     def plate(self):
-        self.win = window_sprite(WIN_W, WIN_H, 0.06, pane='water')
-        self.paths = crack_paths(CX, WIN_CY, WIN_W + 60, WIN_H + 60, seed=11, n_per=3, length=460)
-        self.paths = self.paths[6:9]  # cracks from the top-right corner
-        return skin_plate(under=True)
+        self.hand = get_hand(460, -math.pi / 1.6)
+        self.stamp = stamp_sprite('PAINTED BROWN', 110, color=(225, 35, 35), angle=-8)
+        return plate_img(dark_room('#3C4450', '#10141A', spot=(CX, 900, 1100)))
     def dyn(self, img, t):
-        paste_center(img, self.win, CX, WIN_CY)
-        tS = self.we('SPLIT') - 0.05
-        if t > tS:
-            draw_cracks(img, self.paths, ease_out((t - tS) / 0.3), 16)
-            cx, cy = CX + (WIN_W + 60) / 2, WIN_CY - (WIN_H + 60) / 2
-            glow(img, cx, cy, 200, (255, 60, 30), 0.7)
-        tc = self.we('CORNER') - 0.1
-        if t > tc:
-            cx, cy = CX + (WIN_W + 60) / 2, WIN_CY - (WIN_H + 60) / 2
-            k = ease_back((t - tc) / 0.35, 1.8)
-            r = 120 * max(0.05, k)
-            ov = OV(img, cx - 160, cy - 160, cx + 160, cy + 160)
-            ov.d.ellipse(ov.box(cx - r, cy - r, cx + r, cy + r), outline=(255, 210, 40, 255), width=14)
-            ov.commit()
-            pop(img, C('AT A WINDOW CORNER', 52, bg=YEL), CX, 300, t, tc)
-        pop(img, C('IT SPLIT OPEN', 54, bg=RED, fg=WHITE), CX, 300, t, tS, out_t=tc - 0.1)
+        tl = self.we('LEAKED') - 0.05
+        tp = self.we('painted') - 0.05
+        leaks = 0.2 + 0.8 * ease_out(clamp01((t - tl) / 0.6))
+        paint = ease_in_out(clamp01((t - tp) / 0.9))
+        tk = tank_sprite(560, 680, leaks=round(leaks, 1), paint=round(paint * 20) / 20)
+        paste_center(img, tk, CX, 880)
+        if t > tp - 0.2:
+            yb = 560 + 600 * ((t - tp) * 1.6 % 1.0)
+            brush_hand(img, self.hand, (CX + 120 - 200 * math.sin(t * 6), yb))
+        pop(img, C('THE TWIST?', 66, bg=YEL), CX, 300, t, 0.0, out_t=tl - 0.05)
+        pop(img, C('IT LEAKED FROM THE START', 46, bg=WHITE), CX, 300, t, tl, out_t=self.we('BROWN') - 0.1)
+        stamp_in(img, self.stamp, CX, 320, t, self.we('BROWN') - 0.05)
+        pop(img, C('TO HIDE THE LEAKS', 48, bg=DARK, fg=WHITE), CX, 1220, t, self.we('hide') - 0.05)
 
-class Stress(S):
-    z0, z1 = 1.02, 1.1
+class Cold(S):
+    z0, z1 = 1.02, 1.12
+    focus = (CX, 1000)
     def events(self):
-        return [(0.05, 'pop', 0.5), (self.we('STRESS') - 0.05, 'thud', 0.7), (self.we('far'), 'riser', 0.6), (self.we('than'), 'bigpop', 0.7)]
+        return [(0.05, 'wind', 0.7), (self.we('cold') - 0.05, 'tick', 0.6), (self.we('thickened') - 0.05, 'splat', 0.7), (self.we('GLUE') - 0.05, 'squeak', 0.7)]
     def plate(self):
-        self.win = window_sprite(420, 450, 0.06)
-        img = plate_img(dark_room('#2E3440', '#0E1116', spot=(CX, 900, 1100)))
+        self.hand = get_hand(560, -math.pi / 2)
+        img = street_plate('winter', rail=False, seed=12)
+        d = ImageDraw.Draw(img, 'RGBA')
+        d.rectangle((0, 980, PW, PH), fill=MOL + (255,))
+        for y in range(1000, PH, 70):
+            d.line((0, y, PW, y + 12), fill=(110, 56, 20, 90), width=6)
         return img
     def dyn(self, img, t):
-        cx, cy, w, h = CX, 780, 480, 510
-        tS = self.we('STRESS') - 0.05
-        # stress flow lines bending around the window and bunching at the corners
-        ov = OV(img, 0, 300, PW, 1260)
-        sh = (t * 160) % 60
-        for k in range(-7, 8):
-            x = cx + k * 70
-            pts = []
-            for yy in np.linspace(330, 1230, 40):
-                dy = (yy - cy) / (h / 2 + 40)
-                push = (w / 2 + 50) * np.exp(-dy ** 4) * np.sign(k) * max(0, 1 - abs(k) / 8) if k != 0 else 0
-                pts.append((x + push * 0.9, yy))
-            col = (255, 120, 80, 200) if abs(k) <= 4 else (140, 190, 255, 140)
-            ov.d.line(ov.pts(pts), fill=col, width=6)
+        snow(img, t, 50, 7, 980)
+        th = self.we('thickened') - 0.05
+        lvl = 0.75 - 0.6 * ease_out(clamp01(t / max(0.4, th + 0.3)))
+        thermo(img, 260, 560, lvl, 420)
+        # wooden mannequin arm pulled out of the goo, strands stretching
+        tg = self.we('trapping') - 0.05
+        lift = 60 * ease_out(clamp01((t - tg) / 0.6)) * (1 + 0.15 * math.sin(t * 7))
+        tip = (CX + 100, 900 - lift)
+        ov = OV(img, CX - 200, 700 - lift, CX + 420, 1100)
+        for k in range(5):
+            x = CX + 80 + k * 40
+            ov.d.line(ov.pts([(x, 1000), (x + 10 * math.sin(t * 3 + k), 900 - lift * 0.8), (x + 20, 840 - lift)]), fill=MOL + (230,), width=18 - 2 * k, joint='curve')
         ov.commit()
-        heat = 0.25 + 0.65 * ease_out(clamp01((t - tS) / 0.6)) + 0.1 * math.sin(t * 10)
-        corner_glow(img, cx, cy, w, h, heat, 140)
-        paste_center(img, self.win, cx, cy)
-        pop(img, C('CORNERS = STRESS HOTSPOTS', 46, bg=RED, fg=WHITE), CX, 300, t, tS)
-        # expected vs actual bars
-        tf = self.we('far') - 0.05
-        if t > tf:
-            u = ease_out(clamp01((t - tf) / 0.5))
-            v = ease_out(clamp01((t - self.we('than')) / 0.6))
-            bx, by = 200, 1150
-            ov = OV(img, 100, 1080, PW - 60, 1330)
-            ov.d.rounded_rectangle(ov.box(bx + 270, by - 30, bx + 270 + 260 * u, by + 10), 18, fill=(120, 200, 130, 255))
-            ov.d.rounded_rectangle(ov.box(bx + 270, by + 50, bx + 270 + 680 * v, by + 90), 18, fill=(230, 60, 45, 255))
-            ov.commit()
-            paste_center(img, text_img('EXPECTED', 50, stroke=6), bx + 120, by - 10)
-            paste_center(img, text_img('ACTUAL', 50, stroke=6), bx + 120, by + 70)
+        bx, by = tip
+        ov = OV(img, bx - 220, by - 260, bx + 260, by + 120)
+        boot = [(bx - 60, by - 240), (bx + 60, by - 240), (bx + 60, by - 40), (bx + 200, by - 10), (bx + 210, by + 60), (bx - 70, by + 60)]
+        ov.d.polygon(ov.pts(boot), fill=(70, 46, 30, 255))
+        ov.d.rectangle(ov.box(bx - 70, by + 40, bx + 210, by + 70), fill=(36, 24, 16, 255))
+        ov.d.line(ov.pts([(bx - 40, by - 220), (bx - 40, by - 60)]), fill=(120, 84, 56, 255), width=10)
+        for k in range(4):
+            yy = by + 60 - k * 40
+            ov.d.line(ov.pts([(bx - 70, yy), (bx + 200 - k * 40, yy + 8)]), fill=MOL + (230,), width=14)
+        ov.commit()
+        ov = OV(img, CX - 100, 950, CX + 450, 1060)
+        ov.d.ellipse(ov.box(CX - 10, 965, CX + 360, 1040), fill=MOL + (255,))
+        ov.d.arc(ov.box(CX - 10, 965, CX + 360, 1040), 200, 330, fill=MOL_HI + (255,), width=8)
+        ov.commit()
+        pop(img, C('WINTER COLD', 54, bg=WHITE, dot=(60, 120, 220)), CX + 150, 300, t, 0.05)
+        pop(img, C('THICK AS GLUE', 60, bg=YEL), CX, 1220, t, self.we('GLUE') - 0.1)
+        pop(img, C('IT THICKENED', 50, bg=(150, 78, 26), fg=WHITE), CX + 150, 460, t, th)
+
+class Toll(S):
+    z0, z1 = 1.02, 1.08
+    focus = (CX, 960)
+    punch = 0.06
+    def events(self):
+        return [(self.we('21') - 0.02, 'thud', 0.7), (self.we('150') - 0.05, 'tick', 0.5)]
+    def plate(self):
+        img = plate_img(dark_room('#2E3038', '#0C0D10', spot=(CX, 900, 1100), strength=1.0))
+        return img
+    def dyn(self, img, t):
+        t21 = self.we('21') - 0.05
+        n = int(clamp01((t - t21) / 0.9) * 21)
+        ic = person_icon(96, (235, 235, 240))
+        for k in range(n):
+            paste_center(img, ic, 210 + (k % 7) * 146, 520 + (k // 7) * 130)
+        pop(img, C('21 LIVES LOST', 64, bg=WHITE), CX, 300, t, t21)
+        t150 = self.we('150') - 0.05
+        if t > t150:
+            m = int(clamp01((t - t150) / 0.8) * 150)
+            sm = person_icon(40, (150, 156, 170))
+            for k in range(m):
+                paste_center(img, sm, 130 + (k % 25) * 43, 960 + (k // 25) * 52)
+            pop(img, C('ABOUT 150 INJURED', 52, bg=DARK, fg=WHITE), CX, 1340 - 60, t, t150)
 
 class Outro(S):
-    z0, z1 = 1.04, 1.12
-    focus = (CX, 960)
+    z0, z1 = 1.02, 1.08
+    focus = (CX, 1000)
     def events(self):
-        return [(0.05, 'swipe', 0.6), (self.we('ROUNDED') - 0.05, 'ding', 0.8), (self.we('every') - 0.05, 'pop', 0.5)]
+        return [(0.05, 'swipe', 0.6), (self.we('locals') - 0.05, 'pop', 0.5), (self.we('hot') - 0.05, 'sizzle', 0.6), (self.we('smell') - 0.05, 'riser', 0.6)]
     def plate(self):
-        self.round = window_sprite(WIN_W, WIN_H + 80, 0.42)
-        self.square = window_sprite(WIN_W, WIN_H, 0.06)
-        self.ok = check_badge(80, True)
-        self.hand = get_hand(560, -math.pi / 6)
-        return skin_plate()
+        img = street_plate('summer', rail=True, seed=1)
+        d = ImageDraw.Draw(img, 'RGBA')
+        for k in range(7):
+            x = 120 + k * 170
+            d.ellipse((x - 90, GROUND + 60 + (k % 3) * 70, x + 120, GROUND + 120 + (k % 3) * 70), fill=MOL + (40,))
+        self.wave_plate = street_plate('winter')
+        return img
     def dyn(self, img, t):
-        tb = self.we('because') - 0.05
-        tR = self.we('ROUNDED') - 0.05
-        # in the last beat the round window morphs back to the square one (loops to the hook)
-        m = ease_in_out(clamp01((t - tb) / 0.5))
-        if m < 1:
-            paste_center(img, self.round, CX, WIN_CY, alpha=1 - m)
-        if m > 0:
-            paste_center(img, self.square, CX, WIN_CY, alpha=m)
-        pop(img, C('EVERY AIRLINER TODAY', 48, dot=GOLD), CX, 300, t, self.we('every') - 0.05)
-        if t > tR and m < 0.5:
-            k = ease_back((t - tR) / 0.4, 1.8)
-            paste_center(img, self.ok, CX + 330, WIN_CY - 330, scale=max(0.05, k), alpha=1 - 2 * m)
-            pop(img, C('ROUNDED CORNERS', 54, bg=(110, 200, 120)), CX, 430, t, tR, out_t=tb)
-        if t < tb:
-            e = ease_out(t / 0.6)
-            draw_hand(img, self.hand, (CX - 240 + 40 * e, WIN_CY + 260 - 30 * e), 0.0)
+        glow(img, PW - 220, 220, 260, (255, 210, 90), 0.9)
+        ov = OV(img, PW - 330, 110, PW - 110, 330)
+        ov.d.ellipse(ov.box(PW - 300, 140, PW - 140, 300), fill=(255, 226, 120, 255))
+        ov.commit()
+        # wavy smell lines rising from the street
+        ov = OV(img, 0, 700, PW, GROUND + 260)
+        for k in range(7):
+            x0 = 160 + k * 165
+            ph = (t * 0.9 + k * 0.3) % 1
+            pts = [(x0 + 26 * math.sin(yy / 40 + t * 5 + k), yy) for yy in np.linspace(GROUND + 180 - ph * 120, 760 + 300 * (1 - ph), 16)]
+            ov.d.line(ov.pts(pts), fill=(150, 90, 40, int(200 * (1 - ph * 0.6))), width=12, joint='curve')
+        ov.commit()
+        pop(img, C('FOR DECADES...', 56, bg=DARK, fg=WHITE), CX, 300, t, 0.0, out_t=self.we('hot') - 0.1)
+        pop(img, C('HOT DAYS = MOLASSES SMELL', 46, bg=YEL), CX, 300, t, self.we('hot') - 0.05, out_t=self.dur - 0.75)
+        pop(img, C('LOCALS SAID', 46, bg=WHITE), CX, 470, t, self.we('locals') - 0.05, out_t=self.dur - 0.75)
+        # final beat: the wave crashes back in (loops into the hook)
+        td = self.we('the', 't0') if False else self.dur - 0.75
+        if t > td:
+            m = ease_in_out(clamp01((t - td) / 0.45))
+            fr = self.wave_plate.copy()
+            draw_wave(fr, 640, 900, t)
+            paste_center(fr, C('25-FOOT WAVE', 72, bg=YEL), CX, 300)
+            img.alpha_composite(Image.blend(img, fr, m))
 
-SCENES = [Hook, Comet, Elba, Another, Tank, Pressure, Split, Stress, Outro]
+SCENES = [Hook, Burst, Gallons, Speed, Wreck, Twist, Cold, Toll, Outro]

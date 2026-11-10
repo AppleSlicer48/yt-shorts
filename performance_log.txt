@@ -1,1 +1,2 @@
 2026-11-09 Metricool YouTube analytics (videos published in range, last 30 days): titles returned but views/avg view duration/likes/shares all null - no performance data yet
+2026-11-10 Metricool YouTube analytics (videos published in range, last 30 days): 5 titles returned, views/avg view duration/likes/shares all null - no performance data yet
