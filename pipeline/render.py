@@ -119,6 +119,49 @@ def camera(img, z, fx, fy, rot):
     f = fy - d * (W / 2) - e * (H / 2)
     return img.transform((W, H), Image.AFFINE, (a, b, c, d, e, f), Image.BILINEAR)
 
+# ---------------------------------------------------------------- hook banner
+# Big text hook visible from frame 0 (stops the swipe before the voice even lands).
+try:
+    from script_data import HOOK_TEXT
+except Exception:
+    HOOK_TEXT = None
+HOOK_SECS = 3.0
+_hook = {}
+
+def hook_sprite():
+    if 'sp' in _hook:
+        return _hook['sp']
+    lines = HOOK_TEXT.upper().split('\n')
+    size = 96
+    while True:
+        f = font(size)
+        if max(f.getlength(l) for l in lines) <= 900 or size <= 56:
+            break
+        size -= 4
+    asc, desc = f.getmetrics()
+    lh = asc + desc
+    w = int(max(f.getlength(l) for l in lines)) + 80
+    h = lh * len(lines) + 50
+    sp = Image.new('RGBA', (w + 20, h + 24), (0, 0, 0, 0))
+    d = ImageDraw.Draw(sp)
+    d.rounded_rectangle([10, 18, w + 10, h + 18], radius=28, fill=(0, 0, 0, 120))
+    d.rounded_rectangle([10, 6, w + 10, h + 6], radius=28, fill=(255, 255, 255, 255), outline=(0, 0, 0, 255), width=6)
+    for k, l in enumerate(lines):
+        lw_ = f.getlength(l)
+        d.text((10 + (w - lw_) / 2, 6 + 25 + k * lh), l, font=f, fill=(15, 15, 20))
+    _hook['sp'] = sp
+    return sp
+
+def draw_hook(frame, T):
+    if not HOOK_TEXT or T >= HOOK_SECS:
+        return
+    sp = hook_sprite()
+    a = 1.0 if T < HOOK_SECS - 0.25 else (HOOK_SECS - T) / 0.25
+    if a < 1:
+        sp = sp.copy()
+        sp.putalpha(sp.split()[3].point(lambda v: int(v * a)))
+    frame.paste(sp, ((W - sp.width) // 2, 210), sp)
+
 # ---------------------------------------------------------------- shots
 def make_scene(i):
     s = SENTS[i]
@@ -137,6 +180,7 @@ def frame_at(sc, plate, f0, f):
     if hasattr(sc, 'post'):
         sc.post(fr, t)
     draw_caption(fr, f / FPS)
+    draw_hook(fr, f / FPS)
     return fr
 
 def render_shot(i):

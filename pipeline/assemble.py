@@ -13,7 +13,7 @@ def env(x):
     f = x[:n * HOP].reshape(n, HOP)
     return np.sqrt((f ** 2).mean(1) + 1e-12)
 
-LEAD = 0.3
+LEAD = 0.05  # voice starts immediately: early words stop the swipe
 GAP = 0.2
 TAIL = 1.2
 BREAK_CHARS = ',:?;.'
