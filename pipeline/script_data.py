@@ -1,14 +1,19 @@
 def W(s, spoken=None):
     return (s, spoken if spoken is not None else s)
 
+HOOK_TEXT = "PLAY-DOH WAS\nWALLPAPER CLEANER?!"
+
 SENTENCES = [
-    [W("NASA", "nasa"), W("lost"), W("a"), W("$125", "hundred twenty five"), W("MILLION", "million"), W("spacecraft"), W("to"), W("a"), W("math"), W("MISTAKE.", "mistake.")],
-    [W("Its"), W("Mars"), W("Climate"), W("Orbiter"), W("flew"), W("NINE", "nine"), W("months"), W("to"), W("Mars.")],
-    [W("Lockheed"), W("Martin's"), W("software"), W("measured"), W("thruster"), W("pushes"), W("in"), W("POUND-SECONDS.", "pound seconds.")],
-    [W("But"), W("NASA's", "nasa's"), W("navigators"), W("read"), W("them"), W("as"), W("METRIC", "metric"), W("newton-seconds.", "newton seconds.")],
-    [W("One"), W("pound-force", "pound force"), W("is"), W("4.45", "four point four five"), W("newtons,"), W("so"), W("every"), W("push"), W("was"), W("UNDERESTIMATED.", "underestimated.")],
-    [W("The"), W("twist?"), W("A"), W("lopsided"), W("solar"), W("panel"), W("made"), W("them"), W("fire"), W("about"), W("TEN", "ten"), W("times"), W("more"), W("than"), W("expected.")],
-    [W("Navigators"), W("saw"), W("odd"), W("data,"), W("but"), W("assumed"), W("it"), W("was"), W("a"), W("GLITCH.", "glitch.")],
-    [W("In"), W("1999,", "nineteen ninety nine,"), W("it"), W("skimmed"), W("Mars"), W("at"), W("just"), W("57", "fifty seven"), W("KILOMETERS,", "kilometers,"), W("not"), W("226.", "two twenty six.")],
-    [W("It"), W("likely"), W("BURNED", "burned"), W("up,"), W("and"), W("that's"), W("how...", "how")],
+    [W("Play-Doh", "play dough"), W("was"), W("invented"), W("to"), W("clean"), W("WALLPAPER.", "wallpaper.")],
+    [W("A"), W("Cincinnati"), W("company"), W("called"), W("KUTOL", "kutol"), W("sold"), W("it"), W("as"), W("a"), W("putty"), W("that"), W("rubbed"), W("COAL", "coal"), W("SOOT", "soot"), W("off"), W("walls.")],
+    [W("But"), W("after"), W("World"), W("War"), W("Two,"), W("homes"), W("switched"), W("from"), W("coal"), W("to"), W("GAS", "gas"), W("heat.")],
+    [W("No"), W("soot"), W("meant"), W("almost"), W("NO", "no"), W("customers,"), W("and"), W("sales"), W("CRASHED.", "crashed.")],
+    [W("Then"), W("nursery"), W("school"), W("teacher"), W("Kay"), W("Zufall,"), W("Joe"), W("McVicker's"), W("sister-in-law,", "sister in law,"), W("tried"), W("it"), W("with"), W("her"), W("class.")],
+    [W("The"), W("kids"), W("LOVED", "loved"), W("squishing"), W("and"), W("molding"), W("it,"), W("so"), W("she"), W("pushed"), W("the"), W("company"), W("to"), W("sell"), W("it"), W("as"), W("a"), W("TOY.", "toy.")],
+    [W("She"), W("and"), W("her"), W("husband"), W("even"), W("came"), W("up"), W("with"), W("the"), W("name:"), W("PLAY-DOH.", "play dough.")],
+    [W("In"), W("1956,", "nineteen fifty six,"), W("it"), W("hit"), W("stores"), W("in"), W("just"), W("ONE", "one"), W("color:"), W("WHITE.", "white.")],
+    [W("Red,"), W("yellow"), W("and"), W("blue"), W("came"), W("the"), W("very"), W("next"), W("YEAR.", "year.")],
+    [W("And"), W("in"), W("2018,", "twenty eighteen,"), W("its"), W("SMELL", "smell"), W("became"), W("an"), W("official"), W("TRADEMARK.", "trademark.")],
+    [W("Sweet"), W("vanilla,"), W("a"), W("hint"), W("of"), W("CHERRY,", "cherry,"), W("and"), W("salty"), W("wheat"), W("DOUGH.", "dough.")],
+    [W("Billions"), W("of"), W("cans"), W("later,"), W("almost"), W("nobody"), W("remembers"), W("that...", "that")],
 ]
