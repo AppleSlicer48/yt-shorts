@@ -1,19 +1,20 @@
 def W(s, spoken=None):
     return (s, spoken if spoken is not None else s)
 
-HOOK_TEXT = "PLAY-DOH WAS\nWALLPAPER CLEANER?!"
+HOOK_TEXT = "AN 11-YEAR-OLD\nINVENTED THIS?!"
 
 SENTENCES = [
-    [W("Play-Doh", "play dough"), W("was"), W("invented"), W("to"), W("clean"), W("WALLPAPER.", "wallpaper.")],
-    [W("A"), W("Cincinnati"), W("company"), W("called"), W("KUTOL", "kutol"), W("sold"), W("it"), W("as"), W("a"), W("putty"), W("that"), W("rubbed"), W("COAL", "coal"), W("SOOT", "soot"), W("off"), W("walls.")],
-    [W("But"), W("after"), W("World"), W("War"), W("Two,"), W("homes"), W("switched"), W("from"), W("coal"), W("to"), W("GAS", "gas"), W("heat.")],
-    [W("No"), W("soot"), W("meant"), W("almost"), W("NO", "no"), W("customers,"), W("and"), W("sales"), W("CRASHED.", "crashed.")],
-    [W("Then"), W("nursery"), W("school"), W("teacher"), W("Kay"), W("Zufall,"), W("Joe"), W("McVicker's"), W("sister-in-law,", "sister in law,"), W("tried"), W("it"), W("with"), W("her"), W("class.")],
-    [W("The"), W("kids"), W("LOVED", "loved"), W("squishing"), W("and"), W("molding"), W("it,"), W("so"), W("she"), W("pushed"), W("the"), W("company"), W("to"), W("sell"), W("it"), W("as"), W("a"), W("TOY.", "toy.")],
-    [W("She"), W("and"), W("her"), W("husband"), W("even"), W("came"), W("up"), W("with"), W("the"), W("name:"), W("PLAY-DOH.", "play dough.")],
-    [W("In"), W("1956,", "nineteen fifty six,"), W("it"), W("hit"), W("stores"), W("in"), W("just"), W("ONE", "one"), W("color:"), W("WHITE.", "white.")],
-    [W("Red,"), W("yellow"), W("and"), W("blue"), W("came"), W("the"), W("very"), W("next"), W("YEAR.", "year.")],
-    [W("And"), W("in"), W("2018,", "twenty eighteen,"), W("its"), W("SMELL", "smell"), W("became"), W("an"), W("official"), W("TRADEMARK.", "trademark.")],
-    [W("Sweet"), W("vanilla,"), W("a"), W("hint"), W("of"), W("CHERRY,", "cherry,"), W("and"), W("salty"), W("wheat"), W("DOUGH.", "dough.")],
-    [W("Billions"), W("of"), W("cans"), W("later,"), W("almost"), W("nobody"), W("remembers"), W("that...", "that")],
+    [W("An"), W("11-year-old", "eleven year old"), W("invented"), W("the"), W("Popsicle"), W("by"), W("ACCIDENT.", "accident.")],
+    [W("In"), W("1905,", "nineteen oh five,"), W("Frank"), W("Epperson"), W("stirred"), W("sugary"), W("soda"), W("powder"), W("into"), W("WATER.", "water.")],
+    [W("Then"), W("he"), W("left"), W("it"), W("outside"), W("OVERNIGHT,", "overnight,"), W("with"), W("the"), W("wooden"), W("stick"), W("still"), W("in"), W("it.")],
+    [W("That"), W("night,"), W("as"), W("the"), W("story"), W("goes,"), W("it"), W("dropped"), W("below"), W("FREEZING.", "freezing.")],
+    [W("By"), W("morning,"), W("his"), W("drink"), W("was"), W("frozen"), W("SOLID", "solid"), W("around"), W("the"), W("stick.")],
+    [W("So"), W("he"), W("pulled"), W("it"), W("out"), W("and"), W("LICKED", "licked"), W("it"), W("right"), W("off.")],
+    [W("But"), W("here's"), W("the"), W("crazy"), W("part:"), W("he"), W("waited"), W("about"), W("18", "eighteen"), W("YEARS", "years"), W("to"), W("sell"), W("it.")],
+    [W("In"), W("1923,", "nineteen twenty three,"), W("he"), W("sold"), W("them"), W("at"), W("an"), W("amusement"), W("park"), W("called"), W("NEPTUNE", "neptune"), W("BEACH.", "beach.")],
+    [W("He"), W("named"), W("it"), W("the"), W("EPSICLE:", "epsicle:"), W("his"), W("name"), W("plus"), W("ICICLE.", "icicle.")],
+    [W("But"), W("his"), W("own"), W("KIDS", "kids"), W("called"), W("it"), W("POP'S", "pop's"), W("'SICLE,", "sicle,"), W("and"), W("THAT", "that"), W("name"), W("stuck.")],
+    [W("He"), W("patented"), W("it"), W("in"), W("1924,", "nineteen twenty four,"), W("but"), W("a"), W("year"), W("later"), W("he"), W("was"), W("so"), W("BROKE", "broke"), W("he"), W("sold"), W("the"), W("rights.")],
+    [W("Years"), W("later"), W("he"), W("said,"), W('"I', 'I'), W("haven't"), W("been"), W("the"), W("same"), W('SINCE."', "since.")],
+    [W("Now"), W("it's"), W("everywhere,"), W("and"), W("it"), W("all"), W("started"), W("because...", "because")],
 ]
