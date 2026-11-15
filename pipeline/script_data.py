@@ -1,21 +1,21 @@
 def W(s, spoken=None):
     return (s, spoken if spoken is not None else s)
 
-HOOK_TEXT = "THIS TOY WAS\nFOR WARSHIPS?!"
+HOOK_TEXT = "A FAILED GLUE\nMADE THIS?!"
 
 def ws(text):
     return [W(x) for x in text.split()]
 
 SENTENCES = [
-    ws("The Slinky was invented for Navy ships, not kids."),
-    [W("In"), W("1943,", "nineteen forty three,")] + ws("engineer Richard James was making springs to keep ship instruments steady in rough seas."),
-    ws("Then one day, he knocked a spring off a shelf."),
-    ws("But instead of just falling, it WALKED."),
-    ws("It flipped end over end, like it was alive."),
-    ws("His wife Betty flipped through a dictionary and found the perfect name: slinky, meaning sleek and graceful."),
-    [W("In"), W("1945,", "nineteen forty five,")] + ws("a Philadelphia department store let them show it off for Christmas."),
-    ws("Richard set them walking down a sloped board, and all") + [W("400", "four hundred"), W("sold"), W("out"), W("in"), W("90", "ninety")] + ws("minutes, at a dollar each."),
-    ws("Then it went to war: soldiers in Vietnam used Slinkys as radio antennas."),
-    ws("Since then, over") + [W("250", "two hundred fifty"), W("MILLION", "million")] + ws("have been sold."),
-    ws("Not bad for a toy that was never meant for kids, because..."),
+    ws("Post-it Notes came from a glue that FAILED."),
+    [W("In"), W("1968,", "nineteen sixty eight,")] + ws("chemist Spencer Silver was trying to make a super strong glue."),
+    ws("Instead, he made the exact opposite: a weak glue so gentle it peeled right off."),
+    ws("For five years, he showed it off all over") + [W("3M,","three M,")] + ws("and nobody could find a use for it."),
+    ws("Then his coworker Art Fry got fed up at church choir practice."),
+    ws("His paper bookmarks kept falling out of his hymn book."),
+    ws("So he coated them with that weak glue, and they stuck, then peeled off clean."),
+    ws("And the yellow? Pure accident. The lab next door only had yellow scrap paper."),
+    ws("But when") + [W("3M","three M")] + ws("tested them in four cities, sales flopped."),
+    ws("So they gave free samples in Boise, Idaho, and about") + [W("90%", "ninety percent")] + ws("who tried them said they'd buy."),
+    [W("In"), W("1980,", "nineteen eighty,")] + ws("they hit stores nationwide, which is wild, because..."),
 ]
