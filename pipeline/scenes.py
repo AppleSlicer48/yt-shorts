@@ -1,343 +1,26 @@
-"""Velcro was invented because of a dog (2026-11-16)."""
+"""Ketchup was once sold as medicine (2026-11-17)."""
 import math
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
 from engine import *
-from base_scenes import ARM_LIGHT, CX, CY, plate_img, grain_map, finish
+from base_scenes import ARM_LIGHT, CX, CY, plate_img, grain_map, finish, table_bg
 from mw_scenes import glow, stamp_sprite, mannequin
 from bw_scenes import S, C, OV, stamp_in, get_hand, draw_hand, shadow_of
-from cart_scenes import ground_shadow, figure, red_x
+from cart_scenes import ground_shadow, red_x
 
 RED = (214, 50, 44)
+KRED = '#D2261C'
 YEL = (255, 210, 60)
 BLUE = (40, 120, 200)
 GREEN = (60, 170, 90)
 WHITE = (255, 255, 255)
-STRAP = (38, 44, 66)
-DOGC = '#C98A4E'
 
 class Base(S):
     focus = (CX, 1100)
     z0, z1 = 1.16, 1.24
 
-# ====================================================================== plates
-_PL = {}
-def wall_plate(c0='#F2B266', c1='#B5562C', seed=3, spot=(CX, 900, 1300)):
-    key = (c0, c1, seed, spot)
-    if key in _PL:
-        return _PL[key].copy()
-    arr = vgrad(PW, PH, [(0, c0), (1, c1)])
-    arr = arr * (0.9 + 0.1 * smooth_noise(PH, PW, 110, seed, 3))[..., None]
-    arr = arr * (0.6 + 0.55 * radial(PW, PH, spot[0], spot[1], spot[2], 1.3))[..., None]
-    img = plate_img(vignette(np.clip(arr, 0, 1), 0.45))
-    _PL[key] = img
-    return img.copy()
-
-def alps_plate():
-    if 'alps' in _PL:
-        return _PL['alps'].copy()
-    arr = vgrad(PW, PH, [(0, '#7EC4F0'), (0.5, '#CFEAF8'), (1, '#CFEAF8')])
-    img = to_img(arr).convert('RGBA')
-    ov = OV(img, 0, 0, PW, PH)
-    d = ov.d
-    back = [(0, 1150), (160, 820), (330, 990), (560, 560), (760, 900), (930, 700), (1120, 940), (1296, 760), (1296, 1500), (0, 1500)]
-    d.polygon(back, fill=(150, 170, 200, 255))
-    for (px, py, w) in ((560, 560, 120), (930, 700, 90), (160, 820, 80), (1296, 760, 80)):
-        d.polygon([(px, py), (px - w, py + w * 1.1), (px - w * 0.4, py + w * 0.9), (px, py + w * 1.2), (px + w * 0.5, py + w * 0.85), (px + w, py + w * 1.1)], fill=(250, 252, 255, 255))
-    front = [(0, 1350), (260, 1020), (470, 1260), (700, 1000), (980, 1290), (1296, 1080), (1296, 1700), (0, 1700)]
-    d.polygon(front, fill=(96, 120, 150, 255))
-    for (px, py, w) in ((260, 1020, 90), (700, 1000, 100), (1296, 1080, 70)):
-        d.polygon([(px, py), (px - w, py + w), (px - w * 0.3, py + w * 0.8), (px + w * 0.4, py + w * 0.95), (px + w, py + w)], fill=(245, 248, 252, 255))
-    d.rectangle((0, 1560, PW, PH), fill=(98, 170, 78, 255))
-    d.polygon([(0, 1560), (400, 1500), (900, 1540), (1296, 1490), (1296, 1600), (0, 1600)], fill=(98, 170, 78, 255))
-    rng = np.random.default_rng(3)
-    for (tx, ty, h) in ((70, 1600, 300), (1230, 1590, 340), (180, 1560, 220), (1120, 1550, 230)):
-        d.rectangle((tx - 14, ty - 20, tx + 14, ty + 30), fill=(90, 60, 40, 255))
-        for k in range(3):
-            yy = ty - h * (0.3 + 0.3 * k)
-            ww = h * (0.42 - 0.1 * k)
-            d.polygon([(tx, yy - h * 0.38), (tx - ww, yy + h * 0.12), (tx + ww, yy + h * 0.12)], fill=(40, 100, 60, 255))
-    for _ in range(140):
-        x = float(rng.uniform(0, PW)); y = float(rng.uniform(1620, PH))
-        d.line([(x, y), (x + rng.uniform(-10, 10), y - rng.uniform(20, 46))], fill=(60, 130, 55, 255), width=6)
-    ov.commit()
-    arr = vignette(to_arr(img), 0.35)
-    img = plate_img(arr)
-    _PL['alps'] = img
-    return img.copy()
-
-def space_wall_plate():
-    if 'space' in _PL:
-        return _PL['space'].copy()
-    arr = vgrad(PW, PH, [(0, '#C9CFD8'), (1, '#7E8794')])
-    arr = arr * (0.94 + 0.06 * smooth_noise(PH, PW, 120, 5, 3))[..., None]
-    img = to_img(arr).convert('RGBA')
-    ov = OV(img, 0, 0, PW, PH)
-    d = ov.d
-    for y in (260, 760, 1660, 2160):
-        d.line([(0, y), (PW, y)], fill=(90, 98, 110, 255), width=8)
-        for x in range(40, PW, 120):
-            d.ellipse((x - 9, y + 22, x + 9, y + 40), fill=(150, 158, 170, 255))
-    for x in (300, 1000):
-        d.line([(x, 0), (x, 260)], fill=(90, 98, 110, 255), width=8)
-    # porthole with Earth
-    cx, cy, r = 1010, 520, 170
-    d.ellipse((cx - r - 30, cy - r - 30, cx + r + 30, cy + r + 30), fill=(70, 76, 88, 255))
-    d.ellipse((cx - r, cy - r, cx + r, cy + r), fill=(10, 14, 36, 255))
-    rng = np.random.default_rng(9)
-    for _ in range(30):
-        a = rng.uniform(0, 6.28); q = rng.uniform(0, 0.9) * r
-        x, y = cx + math.cos(a) * q, cy + math.sin(a) * q
-        d.ellipse((x - 3, y - 3, x + 3, y + 3), fill=(255, 255, 255, 255))
-    d.chord((cx - r, cy + 20, cx + r, cy + r + 240), 180, 360, fill=(60, 140, 220, 255))
-    d.chord((cx - r * 0.6, cy + 60, cx + r * 0.3, cy + 200), 180, 360, fill=(80, 170, 90, 255))
-    ov.commit()
-    img = plate_img(vignette(to_arr(img), 0.35))
-    _PL['space'] = img
-    return img.copy()
-
-# ====================================================================== props
-_SP = {}
-def strap_tex(w, h, kind='loop', col=STRAP, seed=1):
-    """Hook-and-loop strip. kind 'loop' = fuzzy, 'hook' = rows of tiny hooks."""
-    key = ('strap', w, h, kind, col, seed)
-    if key in _SP:
-        return _SP[key]
-    arr = np.ones((h, w, 3), np.float32) * (np.array(col, np.float32) / 255)
-    if kind == 'loop':
-        n = smooth_noise(h, w, 4, seed, 2)
-        arr = arr * (0.75 + 0.6 * n[..., None])
-    else:
-        n = smooth_noise(h, w, 10, seed, 2)
-        arr = arr * (0.85 + 0.3 * n[..., None])
-    im = to_img(arr).convert('RGBA')
-    d = ImageDraw.Draw(im)
-    if kind == 'hook':
-        lc = tuple(min(255, int(c * 2.2 + 40)) for c in col) + (255,)
-        for y in range(22, h - 16, 26):
-            off = 13 if (y // 26) % 2 else 0
-            for x in range(14 + off, w - 10, 26):
-                d.arc((x - 7, y - 9, x + 7, y + 5), 180, 360, fill=lc, width=3)
-                d.line([(x - 7, y - 2), (x - 7, y + 8)], fill=lc, width=3)
-    else:
-        rng = np.random.default_rng(seed)
-        lc = tuple(min(255, int(c * 2.0 + 50)) for c in col) + (200,)
-        for _ in range(int(w * h / 600)):
-            x, y = rng.uniform(4, w - 4), rng.uniform(4, h - 4)
-            r = rng.uniform(4, 8)
-            a0 = rng.uniform(0, 360)
-            d.arc((x - r, y - r, x + r, y + r), a0, a0 + 230, fill=lc, width=2)
-    # stitched edges
-    ec = tuple(min(255, int(c * 1.6 + 30)) for c in col) + (255,)
-    for yy in (10, h - 12):
-        for x in range(10, w - 10, 30):
-            d.line([(x, yy), (x + 16, yy)], fill=ec, width=4)
-    d.rectangle((0, 0, w - 1, h - 1), outline=tuple(int(c * 0.6) for c in col) + (255,), width=4)
-    _SP[key] = im
-    return im
-
-def burr_sprite(r, seed=0):
-    key = ('burr', r, seed)
-    if key in _SP:
-        return _SP[key]
-    ss = 2
-    R = int(r * 1.6)
-    im = Image.new('RGBA', (2 * R * ss, 2 * R * ss), (0, 0, 0, 0))
-    d = ImageDraw.Draw(im)
-    c = R * ss
-    rng = np.random.default_rng(seed)
-    n = 46
-    for k in range(n):
-        a = 2 * math.pi * k / n + rng.uniform(-0.05, 0.05)
-        r0, r1 = r * 0.6 * ss, r * (1.3 + rng.uniform(-0.08, 0.08)) * ss
-        x0, y0 = c + math.cos(a) * r0, c + math.sin(a) * r0
-        x1, y1 = c + math.cos(a) * r1, c + math.sin(a) * r1
-        d.line([(x0, y0), (x1, y1)], fill=(150, 112, 60, 255), width=max(2, int(r * 0.06 * ss)))
-        hx, hy = x1 + math.cos(a + 2.2) * r * 0.14 * ss, y1 + math.sin(a + 2.2) * r * 0.14 * ss
-        d.line([(x1, y1), (hx, hy)], fill=(150, 112, 60, 255), width=max(2, int(r * 0.05 * ss)))
-    im = im.resize((2 * R, 2 * R), Image.LANCZOS)
-    lay = Layer(2 * R, 2 * R)
-    sphere(lay, (R, R), r * 0.78, '#7A5326', spec=0.15, shin=12)
-    sp, x0, y0 = layer_sprite(lay, 0)
-    im.alpha_composite(sp, (x0, y0))
-    d = ImageDraw.Draw(im)
-    for k in range(18):
-        a = rng.uniform(0, 6.28); q = rng.uniform(0.1, 0.7) * r
-        x, y = R + math.cos(a) * q, R + math.sin(a) * q
-        d.line([(x, y), (x + math.cos(a) * r * 0.2, y + math.sin(a) * r * 0.2)], fill=(185, 145, 80, 255), width=max(2, int(r * 0.05)))
-    _SP[key] = im
-    return im
-
-def dog_sprite(L, step=0.0, wag=0.0, burrs=0):
-    """Wooden toy dog in side view facing right. L = body length scale."""
-    step = round((step % 1) * 12) / 12
-    wag = round(wag * 6) / 6
-    key = ('dog', L, step, wag, burrs)
-    if key in _SP:
-        return _SP[key]
-    lay = Layer(int(L * 1.5), int(L * 1.15))
-    col = hexc(DOGC); j = col * 0.82; dark = hexc('#5A3418')
-    kw = dict(grain=grain_map()[:lay.h, :lay.w], spec=0.28, shin=22)
-    ox, oy = L * 0.62, L * 0.5
-    P = lambda u, v: (ox + u * L, oy + v * L)
-    sw = math.sin(step * 2 * math.pi) * 0.07
-    # far legs
-    for (x, s) in ((0.2, 1), (-0.24, -1)):
-        capsule(lay, P(x, 0.05), P(x - s * sw, 0.42), 0.055 * L, 0.045 * L, j * 0.9, **kw)
-        ellipsoid(lay, P(x - s * sw + 0.03, 0.44), 0.06 * L, 0.03 * L, 0, j * 0.85, **kw)
-    # tail
-    tx, ty = -0.36, -0.06
-    capsule(lay, P(tx, ty), P(tx - 0.14, ty - 0.2 + 0.06 * wag), 0.03 * L, 0.02 * L, col, **kw)
-    ellipsoid(lay, P(0, 0), 0.33 * L, 0.15 * L, 0, col, **kw)
-    ellipsoid(lay, P(0.2, -0.02), 0.15 * L, 0.16 * L, 0, col, **kw)
-    capsule(lay, P(0.25, -0.06), P(0.36, -0.26), 0.08 * L, 0.07 * L, col, **kw)
-    ellipsoid(lay, P(0.41, -0.33), 0.13 * L, 0.11 * L, 0, col, **kw)
-    capsule(lay, P(0.47, -0.29), P(0.6, -0.27), 0.065 * L, 0.055 * L, col, **kw)
-    sphere(lay, P(0.62, -0.285), 0.035 * L, hexc('#2A1A10'), spec=0.5, shin=40)
-    sphere(lay, P(0.46, -0.37), 0.022 * L, hexc('#1A1010'), spec=0.6, shin=40)
-    ellipsoid(lay, P(0.35, -0.33), 0.05 * L, 0.11 * L, 0.35, dark, **kw)
-    # near legs
-    for (x, s) in ((0.24, -1), (-0.2, 1)):
-        capsule(lay, P(x, 0.05), P(x + s * sw, 0.42), 0.058 * L, 0.048 * L, col, **kw)
-        ellipsoid(lay, P(x + s * sw + 0.03, 0.44), 0.065 * L, 0.032 * L, 0, j, **kw)
-    sp, x0, y0 = layer_sprite(lay, 2)
-    if burrs:
-        rng = np.random.default_rng(5)
-        spots = [(-0.2, -0.05), (0.05, -0.1), (0.2, 0.05), (-0.05, 0.08), (0.38, -0.38), (-0.3, 0.02), (0.12, -0.12),
-                 (-0.14, 0.1), (0.3, -0.18), (0.24, 0.28), (-0.22, 0.3), (0.0, -0.02)]
-        for k, (u, v) in enumerate(spots[:burrs]):
-            b = burr_sprite(int(L * 0.05), k)
-            x, y = P(u, v)
-            paste_at(sp, b, x - x0 - b.width / 2, y - y0 - b.height / 2)
-    info = {'foot': (P(0, 0.465)[0] - x0, P(0, 0.465)[1] - y0)}
-    _SP[key] = (sp, info)
-    return _SP[key]
-
-def draw_dog(img, L, cx, ground, step=0.0, wag=0.0, burrs=0, shadow=True):
-    sp, info = dog_sprite(L, step, wag, burrs)
-    if shadow:
-        ground_shadow(img, cx, ground + 4, L * 1.3, 0.4)
-    paste_at(img, sp, cx - info['foot'][0], ground - info['foot'][1])
-
-def draw_man(img, Hh, cx, ground, step=0.0, walk=True):
-    sp, info = figure(Hh, 'man', False, round((step % 1) * 12) / 12 if walk else 0.0)
-    ground_shadow(img, cx, ground + 6, Hh * 0.38, 0.4)
-    paste_at(img, sp, int(cx - info['foot'][0]), int(ground - info['foot'][1]))
-
-def microscope_sprite(h=900):
-    key = ('micro', h)
-    if key in _SP:
-        return _SP[key]
-    w = int(h * 0.75)
-    im = Image.new('RGBA', (w, h), (0, 0, 0, 0))
-    d = ImageDraw.Draw(im)
-    k = h / 900
-    body = (236, 238, 242, 255); dark = (60, 66, 80, 255); mid = (150, 156, 170, 255)
-    d.rounded_rectangle((60 * k, 780 * k, 560 * k, 880 * k), 30 * k, fill=dark)
-    d.rounded_rectangle((330 * k, 220 * k, 460 * k, 800 * k), 50 * k, fill=body, outline=mid, width=int(6 * k))
-    d.rectangle((120 * k, 560 * k, 470 * k, 610 * k), fill=dark)
-    d.ellipse((400 * k, 440 * k, 470 * k, 510 * k), fill=mid)
-    tube = [(150 * k, 120 * k), (260 * k, 70 * k), (420 * k, 430 * k), (310 * k, 480 * k)]
-    d.polygon(tube, fill=body, outline=mid)
-    d.polygon([(130 * k, 40 * k), (230 * k, 0), (270 * k, 90 * k), (170 * k, 135 * k)], fill=dark)
-    d.polygon([(300 * k, 470 * k), (380 * k, 440 * k), (360 * k, 530 * k), (320 * k, 545 * k)], fill=dark)
-    d.ellipse((290 * k, 520 * k, 350 * k, 560 * k), fill=(120, 200, 255, 255))
-    _SP[key] = im
-    return im
-
-def arrow_sprite(w=260, h=120, col=WHITE):
-    im = Image.new('RGBA', (w + 20, h + 20), (0, 0, 0, 0))
-    d = ImageDraw.Draw(im)
-    pts = [(10, 10 + h * 0.32), (10 + w * 0.62, 10 + h * 0.32), (10 + w * 0.62, 10), (10 + w, 10 + h / 2),
-           (10 + w * 0.62, 10 + h), (10 + w * 0.62, 10 + h * 0.68), (10, 10 + h * 0.68)]
-    d.polygon(pts, fill=col + (255,), outline=(20, 20, 30, 255), width=6)
-    return im
-
-def check_sprite(R=70, col=GREEN):
-    im = Image.new('RGBA', (2 * R + 8, 2 * R + 8), (0, 0, 0, 0))
-    d = ImageDraw.Draw(im)
-    d.ellipse((4, 4, 2 * R + 4, 2 * R + 4), fill=col + (255,), outline=(255, 255, 255, 255), width=8)
-    d.line([(R * 0.55 + 4, R + 4), (R * 0.9 + 4, R * 1.35 + 4), (R * 1.5 + 4, R * 0.65 + 4)], fill=(255, 255, 255, 255), width=int(R * 0.22), joint='curve')
-    return im
-
-def qmark(size=150, col=(255, 255, 255)):
-    return text_img('?', size, fill=col, stroke=10, stroke_fill=(20, 20, 30), shadow_px=4)
-
-def shoe_sprite(w=420, col=(220, 70, 60)):
-    key = ('shoe', w, col)
-    if key in _SP:
-        return _SP[key]
-    h = int(w * 0.55)
-    im = Image.new('RGBA', (w + 20, h + 20), (0, 0, 0, 0))
-    d = ImageDraw.Draw(im)
-    k = w / 420
-    d.polygon([(20 * k, 90 * k), (150 * k, 60 * k), (230 * k, 120 * k), (400 * k, 160 * k), (410 * k, 200 * k), (20 * k, 200 * k)], fill=col + (255,))
-    d.rounded_rectangle((10 * k, 190 * k, 420 * k, 235 * k), 18 * k, fill=(250, 250, 250, 255), outline=(180, 180, 180, 255), width=3)
-    for x in (95, 165):
-        d.polygon([(x * k, 70 * k), ((x + 50) * k, 85 * k), ((x + 80) * k, 175 * k), ((x + 30) * k, 175 * k)], fill=STRAP + (255,))
-    _SP[key] = im
-    return im
-
-def rocket_sprite(h=980):
-    key = ('rocket', h)
-    if key in _SP:
-        return _SP[key]
-    w = int(h * 0.55)
-    im = Image.new('RGBA', (w, h), (0, 0, 0, 0))
-    d = ImageDraw.Draw(im)
-    cx = w / 2
-    bw = w * 0.36
-    d.polygon([(cx - bw, h * 0.72), (cx - w * 0.48, h * 0.9), (cx - bw, h * 0.86)], fill=(214, 50, 44, 255))
-    d.polygon([(cx + bw, h * 0.72), (cx + w * 0.48, h * 0.9), (cx + bw, h * 0.86)], fill=(214, 50, 44, 255))
-    d.rounded_rectangle((cx - bw, h * 0.25, cx + bw, h * 0.88), int(bw * 0.4), fill=(245, 246, 250, 255), outline=(150, 156, 170, 255), width=6)
-    d.pieslice((cx - bw, h * 0.02, cx + bw, h * 0.5), 180, 360, fill=(214, 50, 44, 255))
-    d.ellipse((cx - bw * 0.45, h * 0.36, cx + bw * 0.45, h * 0.36 + bw * 0.9), fill=(90, 170, 230, 255), outline=(150, 156, 170, 255), width=10)
-    d.rectangle((cx - bw * 0.5, h * 0.88, cx + bw * 0.5, h * 0.93), fill=(80, 86, 100, 255))
-    _SP[key] = im
-    return im
-
-def pen_sprite():
-    im = Image.new('RGBA', (60, 340), (0, 0, 0, 0))
-    d = ImageDraw.Draw(im)
-    d.rounded_rectangle((10, 10, 50, 300), 14, fill=(40, 110, 220, 255))
-    d.polygon([(10, 300), (50, 300), (30, 335)], fill=(230, 230, 230, 255))
-    d.rectangle((44, 30, 54, 130), fill=(200, 200, 210, 255))
-    return im
-
-def spoon_sprite():
-    im = Image.new('RGBA', (120, 380), (0, 0, 0, 0))
-    d = ImageDraw.Draw(im)
-    d.ellipse((10, 10, 110, 150), fill=(215, 220, 228, 255), outline=(150, 156, 170, 255), width=5)
-    d.rounded_rectangle((48, 140, 72, 370), 12, fill=(215, 220, 228, 255), outline=(150, 156, 170, 255), width=4)
-    return im
-
-def pouch_sprite(label='SNACK'):
-    im = Image.new('RGBA', (260, 320), (0, 0, 0, 0))
-    d = ImageDraw.Draw(im)
-    d.rounded_rectangle((10, 10, 250, 310), 30, fill=(245, 236, 200, 255), outline=(170, 150, 100, 255), width=6)
-    d.rectangle((60, 250, 200, 300), fill=STRAP + (255,))
-    f = font(54)
-    bb = f.getbbox(label)
-    d.text((130 - (bb[2] + bb[0]) / 2, 120 - (bb[3] + bb[1]) / 2), label, font=f, fill=(150, 90, 40, 255))
-    return im
-
-def calendar_page(n, w=300):
-    im = Image.new('RGBA', (w, int(w * 1.1)), (0, 0, 0, 0))
-    d = ImageDraw.Draw(im)
-    d.rounded_rectangle((0, 0, w - 1, int(w * 1.1) - 1), 24, fill=(255, 255, 255, 255), outline=(40, 40, 50, 255), width=6)
-    d.rounded_rectangle((0, 0, w - 1, int(w * 0.3)), 24, fill=RED + (255,))
-    d.rectangle((0, int(w * 0.18), w - 1, int(w * 0.3)), fill=RED + (255,))
-    f = font(int(w * 0.18))
-    bb = f.getbbox('YEAR')
-    d.text((w / 2 - (bb[2] + bb[0]) / 2, w * 0.15 - (bb[3] + bb[1]) / 2), 'YEAR', font=f, fill=(255, 255, 255, 255))
-    f = font(int(w * 0.5))
-    s = str(n)
-    bb = f.getbbox(s)
-    d.text((w / 2 - (bb[2] + bb[0]) / 2, w * 0.7 - (bb[3] + bb[1]) / 2), s, font=f, fill=(30, 30, 36, 255))
-    return im
-
+# ====================================================================== text helpers
 def word_sprite(parts, size):
-    """parts: list of (text, color). Big outlined word."""
     f = font(size)
     widths = [f.getlength(t) for t, _ in parts]
     stroke = max(8, size // 12)
@@ -358,477 +41,816 @@ def word_sprite(parts, size):
         x += ww
     return im
 
-# ====================================================================== the hero strap rip
+def qmark(size=150, col=(255, 255, 255), txt='?'):
+    return text_img(txt, size, fill=col, stroke=10, stroke_fill=(20, 20, 30), shadow_px=4)
+
+def check_sprite(R=70, col=GREEN):
+    im = Image.new('RGBA', (2 * R + 8, 2 * R + 8), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    d.ellipse((4, 4, 2 * R + 4, 2 * R + 4), fill=col + (255,), outline=(255, 255, 255, 255), width=8)
+    d.line([(R * 0.55 + 4, R + 4), (R * 0.9 + 4, R * 1.35 + 4), (R * 1.5 + 4, R * 0.65 + 4)], fill=(255, 255, 255, 255), width=int(R * 0.22), joint='curve')
+    return im
+
+def with_shadow(img, sp, cx, cy, blur=14, a=0.45, dx=18, dy=26):
+    sh, pad = shadow_of(sp, blur, a)
+    paste_at(img, sh, cx - sp.width / 2 - pad + dx, cy - sp.height / 2 - pad + dy)
+    paste_at(img, sp, cx - sp.width / 2, cy - sp.height / 2)
+
+# ====================================================================== plates
+_PL = {}
+def wall_plate(c0='#F2B266', c1='#B5562C', seed=3, spot=(CX, 900, 1300), counter=None):
+    key = (c0, c1, seed, spot, counter)
+    if key in _PL:
+        return _PL[key].copy()
+    arr = vgrad(PW, PH, [(0, c0), (1, c1)])
+    arr = arr * (0.9 + 0.1 * smooth_noise(PH, PW, 110, seed, 3))[..., None]
+    arr = arr * (0.6 + 0.55 * radial(PW, PH, spot[0], spot[1], spot[2], 1.3))[..., None]
+    if counter is not None:
+        y0, col = counter
+        top = vgrad(PW, PH - y0, [(0, col), (1, '#2A1A10')])
+        arr[y0:] = top * (0.9 + 0.1 * smooth_noise(PH - y0, PW, 40, seed + 3, 2))[..., None]
+        arr[y0:y0 + 10] *= 1.25
+    img = plate_img(vignette(np.clip(arr, 0, 1), 0.45))
+    _PL[key] = img
+    return img.copy()
+
+def sea_plate():
+    if 'sea' in _PL:
+        return _PL['sea'].copy()
+    arr = vgrad(PW, PH, [(0, '#5FB0E8'), (0.45, '#BFE3F7'), (0.46, '#2F78B8'), (1, '#123E6E')])
+    img = to_img(arr).convert('RGBA')
+    ov = OV(img, 0, 0, PW, PH)
+    for (x, y, r) in ((250, 420, 70), (980, 330, 90), (620, 560, 60)):
+        for k in range(4):
+            ov.d.ellipse((x - r + k * r * 0.5, y - r * 0.6, x + r * 0.4 + k * r * 0.5, y + r * 0.4), fill=(255, 255, 255, 230))
+    ov.commit()
+    img = plate_img(vignette(to_arr(img), 0.35))
+    _PL['sea'] = img
+    return img.copy()
+
+def table_plate(seed=5):
+    key = ('table', seed)
+    if key not in _PL:
+        _PL[key] = plate_img(table_bg(seed))
+    return _PL[key].copy()
+
+# ====================================================================== props
+_SP = {}
+
+def label_tex(w, h, title='KETCHUP', bg=(250, 244, 228), fg=(200, 30, 24), sub=None):
+    im = Image.new('RGBA', (w, h), bg + (255,))
+    d = ImageDraw.Draw(im)
+    d.rounded_rectangle((6, 6, w - 7, h - 7), radius=20, outline=fg + (255,), width=8)
+    size = int(h * 0.36)
+    f = font(size)
+    while f.getlength(title) > w * 0.84 and size > 10:
+        size -= 2
+        f = font(size)
+    tw = f.getlength(title)
+    ty = h * 0.5 - size * 0.62 if sub else h * 0.5 - size * 0.7
+    d.text(((w - tw) / 2, ty), title, font=f, fill=fg)
+    if sub:
+        f2 = font(int(size * 0.5))
+        sw = f2.getlength(sub)
+        d.text(((w - sw) / 2, ty + size * 1.1), sub, font=f2, fill=fg)
+    arr = np.asarray(im, np.float32) / 255
+    xs = np.linspace(-1, 1, w)
+    sh = 0.72 + 0.28 * np.sqrt(np.clip(1 - xs ** 2, 0, 1))
+    arr[..., :3] *= sh[None, :, None]
+    return Image.fromarray((np.clip(arr, 0, 1) * 255).astype(np.uint8), 'RGBA')
+
+def bottle_sprite(H=900):
+    key = ('bottle', H)
+    if key in _SP:
+        return _SP[key]
+    Wd = int(H * 0.6)
+    lay = Layer(Wd, H + 10)
+    cx = Wd / 2
+    kw = dict(spec=0.55, shin=40)
+    capsule(lay, (cx, H * 0.45), (cx, H * 0.80), H * 0.2, H * 0.2, KRED, **kw)
+    capsule(lay, (cx, H * 0.25), (cx, H * 0.42), H * 0.1, H * 0.19, KRED, **kw)
+    capsule(lay, (cx, H * 0.13), (cx, H * 0.22), H * 0.1, H * 0.1, '#F2F0EA', spec=0.4, shin=30)
+    capsule(lay, (cx, H * 0.035), (cx, H * 0.12), H * 0.028, H * 0.06, '#F2F0EA', spec=0.4, shin=30)
+    lw, lh = int(H * 0.34), int(H * 0.2)
+    tex = label_tex(lw, lh, 'KETCHUP')
+    y0 = H * 0.52
+    quad(lay, tex, [(cx - lw / 2, y0), (cx + lw / 2, y0), (cx + lw / 2, y0 + lh), (cx - lw / 2, y0 + lh)])
+    fill_poly(lay, [(cx - H * 0.15, H * 0.36), (cx - H * 0.115, H * 0.36), (cx - H * 0.115, H * 0.92), (cx - H * 0.15, H * 0.9)], '#FFFFFF', 0.28)
+    sp, x0, y0_ = layer_sprite(lay, 2)
+    _SP[key] = sp
+    return sp
+
+def rot_sprite(sp, ang, key=None):
+    if key is not None:
+        k = (key, round(ang, 1))
+        if k in _SP:
+            return _SP[k]
+    r = sp.rotate(ang, resample=Image.BICUBIC, expand=True)
+    if key is not None:
+        _SP[k] = r
+    return r
+
+def pill_sprite(L=110, ang=0, c1=KRED, c2='#F4F1EA'):
+    q = int(round(ang / 15.0)) % 24
+    key = ('pill', L, q, c1, c2)
+    if key in _SP:
+        return _SP[key]
+    a = math.radians(q * 15)
+    n = int(L * 1.5)
+    lay = Layer(n, n)
+    c = n / 2
+    dx, dy = math.cos(a) * L * 0.3, math.sin(a) * L * 0.3
+    r = L * 0.2
+    capsule(lay, (c - dx, c - dy), (c, c), r, r, c1, spec=0.6, shin=40)
+    capsule(lay, (c, c), (c + dx, c + dy), r, r, c2, spec=0.6, shin=40)
+    sp, _, _ = layer_sprite(lay, 2)
+    _SP[key] = sp
+    return sp
+
+def tomato_sprite(R=200):
+    key = ('tomato', R)
+    if key in _SP:
+        return _SP[key]
+    n = int(R * 2.6)
+    lay = Layer(n, n)
+    c = n / 2
+    ellipsoid(lay, (c, c + R * 0.08), R, R * 0.86, 0, '#E3321F', spec=0.6, shin=36)
+    ellipsoid(lay, (c - R * 0.35, c + R * 0.1), R * 0.45, R * 0.7, 0.1, '#E83A24', spec=0.3, shin=30, amb=0.42)
+    pts = []
+    for k in range(10):
+        ang = -math.pi / 2 + k * math.pi / 5
+        rr = R * (0.5 if k % 2 == 0 else 0.16)
+        pts.append((c + math.cos(ang) * rr * 1.1, c - R * 0.66 + math.sin(ang) * rr * 0.45))
+    fill_poly(lay, pts, '#2E8B3A')
+    capsule(lay, (c, c - R * 0.7), (c + R * 0.06, c - R * 0.95), R * 0.05, R * 0.04, '#3C7A2E', spec=0.3)
+    sp, _, _ = layer_sprite(lay, 2)
+    _SP[key] = sp
+    return sp
+
+def fish_sprite(L=420, col='#8FA9BF', slim=0.14):
+    key = ('fish', L, col, slim)
+    if key in _SP:
+        return _SP[key]
+    lay = Layer(int(L * 1.3), int(L * 0.6))
+    cx, cy = L * 0.55, L * 0.3
+    fill_poly(lay, [(cx - L * 0.36, cy), (cx - L * 0.55, cy - L * 0.16), (cx - L * 0.5, cy), (cx - L * 0.55, cy + L * 0.16)], '#6E8AA3')
+    fill_poly(lay, [(cx - L * 0.05, cy - L * slim * 0.8), (cx + L * 0.08, cy - L * slim * 1.5), (cx + L * 0.12, cy - L * slim * 0.8)], '#6E8AA3')
+    ellipsoid(lay, (cx, cy), L * 0.4, L * slim, 0, col, spec=0.7, shin=40)
+    sphere(lay, (cx + L * 0.27, cy - L * slim * 0.25), L * 0.035, '#FFFFFF', spec=0.5)
+    sphere(lay, (cx + L * 0.28, cy - L * slim * 0.25), L * 0.018, '#111111', spec=0.8)
+    sp, _, _ = layer_sprite(lay, 2)
+    d = ImageDraw.Draw(sp)
+    _SP[key] = sp
+    return sp
+
+def walnut_sprite(R=150):
+    key = ('walnut', R)
+    if key in _SP:
+        return _SP[key]
+    n = int(R * 2.4)
+    lay = Layer(n, n)
+    c = n / 2
+    ellipsoid(lay, (c, c), R, R * 0.84, 0.0, '#B07A42', spec=0.25, shin=14, crease=0.55)
+    sp, _, _ = layer_sprite(lay, 2)
+    d = ImageDraw.Draw(sp)
+    rng = np.random.default_rng(4)
+    w, h = sp.size
+    for _ in range(26):
+        x, y = rng.uniform(0.2, 0.8) * w, rng.uniform(0.2, 0.8) * h
+        r = rng.uniform(0.06, 0.16) * R
+        a0 = rng.uniform(0, 360)
+        d.arc((x - r, y - r, x + r, y + r), a0, a0 + 140, fill=(110, 70, 34, 255), width=max(3, int(R * 0.03)))
+    _SP[key] = sp
+    return sp
+
+def oyster_sprite(R=170):
+    key = ('oyster', R)
+    if key in _SP:
+        return _SP[key]
+    n = int(R * 2.6)
+    lay = Layer(n, n)
+    c = n / 2
+    ellipsoid(lay, (c, c + R * 0.12), R * 1.05, R * 0.62, -0.15, '#8E877C', spec=0.25, shin=12)
+    ellipsoid(lay, (c, c + R * 0.05), R * 0.8, R * 0.42, -0.15, '#E9E2D4', spec=0.6, shin=30)
+    sphere(lay, (c + R * 0.1, c + R * 0.02), R * 0.18, '#F7F4FA', spec=0.9, shin=60)
+    sp, _, _ = layer_sprite(lay, 2)
+    d = ImageDraw.Draw(sp)
+    w, h = sp.size
+    for k in range(5):
+        rr = R * (0.85 + 0.09 * k)
+        d.arc((w / 2 - rr * 1.1, h / 2 - rr * 0.62 + R * 0.12, w / 2 + rr * 1.1, h / 2 + rr * 0.62 + R * 0.12), 20, 160, fill=(105, 98, 88, 255), width=5)
+    _SP[key] = sp
+    return sp
+
+def jar_sprite(H=620):
+    key = ('jar', H)
+    if key in _SP:
+        return _SP[key]
+    Wd = int(H * 0.95)
+    lay = Layer(Wd, H + 20)
+    cx = Wd / 2
+    ellipsoid(lay, (cx, H * 0.6), H * 0.42, H * 0.38, 0, '#9A5A2E', spec=0.35, shin=20)
+    capsule(lay, (cx, H * 0.2), (cx, H * 0.3), H * 0.22, H * 0.26, '#8A4E26', spec=0.3, shin=20)
+    ellipsoid(lay, (cx, H * 0.19), H * 0.24, H * 0.06, 0, '#B06A36', spec=0.3)
+    ellipsoid(lay, (cx, H * 0.19), H * 0.19, H * 0.04, 0, '#5A3A18', spec=0.5, shin=40)
+    fill_poly(lay, [(cx - H * 0.4, H * 0.55), (cx + H * 0.4, H * 0.55), (cx + H * 0.38, H * 0.62), (cx - H * 0.38, H * 0.62)], '#D9A060', 0.85)
+    sp, _, _ = layer_sprite(lay, 2)
+    _SP[key] = sp
+    return sp
+
+def ship_sprite(Wd=760):
+    key = ('ship', Wd)
+    if key in _SP:
+        return _SP[key]
+    Hh = int(Wd * 1.05)
+    im = Image.new('RGBA', (Wd, Hh), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    hy = Hh * 0.72
+    d.polygon([(0, hy), (Wd, hy - 20), (Wd * 0.84, Hh - 4), (Wd * 0.12, Hh - 4)], fill=(110, 66, 36, 255), outline=(60, 34, 18, 255))
+    d.rectangle((Wd * 0.05, hy + 20, Wd * 0.95, hy + 34), fill=(230, 190, 90, 255))
+    for mx, top in ((Wd * 0.35, Hh * 0.04), (Wd * 0.66, Hh * 0.12)):
+        d.rectangle((mx - 9, top, mx + 9, hy), fill=(80, 50, 28, 255))
+        for k, (yy0, yy1, ww) in enumerate(((top + 30, top + Hh * 0.28, Wd * 0.2), (top + Hh * 0.3, hy - 30, Wd * 0.25))):
+            d.polygon([(mx - ww, yy0), (mx + ww, yy0), (mx + ww * 1.08, yy1), (mx - ww * 1.08, yy1)], fill=(248, 240, 220, 255), outline=(170, 150, 120, 255))
+        d.polygon([(mx + 9, top), (mx + 80, top + 22), (mx + 9, top + 44)], fill=(214, 50, 44, 255))
+    arr = np.asarray(im, np.float32) / 255
+    ys = np.linspace(1.05, 0.8, Hh)
+    arr[..., :3] *= ys[:, None, None]
+    sp = Image.fromarray((np.clip(arr, 0, 1) * 255).astype(np.uint8), 'RGBA')
+    _SP[key] = sp
+    return sp
+
+def card_sprite(w=640, h=760):
+    key = ('card', w, h)
+    if key in _SP:
+        return _SP[key]
+    arr = np.ones((h, w, 3), np.float32) * hexc('#F1E2BE')
+    arr *= (0.86 + 0.14 * smooth_noise(h, w, 30, 8, 3))[..., None]
+    im = to_img(arr).convert('RGBA')
+    d = ImageDraw.Draw(im)
+    d.rectangle((0, 0, w - 1, h - 1), outline=(150, 110, 60, 255), width=8)
+    f = font(62, FONT_SERIF)
+    for k, line in enumerate(('TOMATO', 'KETCHUP')):
+        tw = f.getlength(line)
+        d.text(((w - tw) / 2, 50 + k * 74), line, font=f, fill=(120, 40, 20))
+    for k in range(8):
+        y = 250 + k * 56
+        x1 = w - 60 - (k * 37 % 140)
+        d.line([(60, y), (x1, y)], fill=(110, 80, 50, 255), width=6)
+    _SP[key] = im
+    return im
+
+def bag_sprite(w=520):
+    key = ('bag', w)
+    if key in _SP:
+        return _SP[key]
+    h = int(w * 0.7)
+    im = Image.new('RGBA', (w, h + 120), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    d.arc((w * 0.3, 0, w * 0.7, 180), 180, 360, fill=(40, 30, 26, 255), width=26)
+    d.polygon([(w * 0.08, 100), (w * 0.92, 100), (w, h + 116), (0, h + 116)], fill=(46, 36, 32, 255))
+    d.rectangle((w * 0.02, 100, w * 0.98, 150), fill=(62, 50, 44, 255))
+    d.rectangle((w * 0.44, 118, w * 0.56, 176), fill=(220, 180, 80, 255))
+    d.rectangle((w * 0.4, 230, w * 0.6, 270), fill=(240, 240, 240, 255))
+    d.rectangle((w * 0.48, 190, w * 0.52, 310), fill=(240, 240, 240, 255))
+    d.rectangle((w * 0.4, 230, w * 0.6, 270), fill=(214, 50, 44, 255))
+    d.rectangle((w * 0.465, 195, w * 0.535, 305), fill=(214, 50, 44, 255))
+    _SP[key] = im
+    return im
+
+def pill_bottle_sprite(H=760):
+    key = ('pbottle', H)
+    if key in _SP:
+        return _SP[key]
+    Wd = int(H * 0.7)
+    lay = Layer(Wd, H + 10)
+    cx = Wd / 2
+    capsule(lay, (cx, H * 0.42), (cx, H * 0.75), H * 0.25, H * 0.25, '#C0661E', spec=0.7, shin=50)
+    capsule(lay, (cx - H * 0.2, H * 0.15), (cx + H * 0.2, H * 0.15), H * 0.075, H * 0.075, '#F2F0EA', spec=0.4, shin=30)
+    lw, lh = int(H * 0.44), int(H * 0.3)
+    tex = label_tex(lw, lh, 'TOMATO', sub='PILLS', fg=(200, 30, 24))
+    y0 = H * 0.4
+    quad(lay, tex, [(cx - lw / 2, y0), (cx + lw / 2, y0), (cx + lw / 2, y0 + lh), (cx - lw / 2, y0 + lh)])
+    fill_poly(lay, [(cx - H * 0.2, H * 0.3), (cx - H * 0.16, H * 0.3), (cx - H * 0.16, H * 0.95), (cx - H * 0.2, H * 0.93)], '#FFFFFF', 0.25)
+    sp, _, _ = layer_sprite(lay, 2)
+    _SP[key] = sp
+    return sp
+
+def half_pill(L=520, side=0):
+    key = ('half', L, side)
+    if key in _SP:
+        return _SP[key]
+    n = int(L * 1.0)
+    lay = Layer(n, int(L * 0.6))
+    r = L * 0.2
+    cy = L * 0.3
+    if side == 0:
+        capsule(lay, (r + 4, cy), (L * 0.5, cy), r, r, KRED, spec=0.6, shin=40)
+    else:
+        capsule(lay, (L * 0.5 - r * 0.0 + 10, cy), (L * 0.5 + L * 0.3, cy), r, r, '#F4F1EA', spec=0.6, shin=40)
+    sp, _, _ = layer_sprite(lay, 2)
+    _SP[key] = sp
+    return sp
+
+def tp_sprite(R=150):
+    key = ('tp', R)
+    if key in _SP:
+        return _SP[key]
+    lay = Layer(int(R * 2.6), int(R * 3.4))
+    cx = R * 1.3
+    capsule(lay, (cx, R * 1.0), (cx, R * 2.3), R, R, '#F7F7F2', spec=0.3, shin=16, amb=0.5)
+    sp, _, _ = layer_sprite(lay, 2)
+    d = ImageDraw.Draw(sp)
+    w, h = sp.size
+    d.rectangle((0, 0, w, R * 0.95), fill=(0, 0, 0, 0))
+    d.ellipse((w / 2 - R, R * 0.6, w / 2 + R, R * 1.3), fill=(240, 240, 232, 255), outline=(200, 200, 190, 255), width=4)
+    d.ellipse((w / 2 - R * 0.35, R * 0.83, w / 2 + R * 0.35, R * 1.07), fill=(160, 130, 100, 255))
+    d.polygon([(w / 2 + R * 0.2, h - R * 0.9), (w / 2 + R * 1.25, h - R * 0.7), (w / 2 + R * 1.25, h - 4), (w / 2 + R * 0.2, h - 8)], fill=(244, 244, 238, 255))
+    _SP[key] = sp
+    return sp
+
+def fries_sprite(w=520):
+    key = ('fries', w)
+    if key in _SP:
+        return _SP[key]
+    h = int(w * 1.15)
+    im = Image.new('RGBA', (w, h), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    rng = np.random.default_rng(7)
+    for k in range(16):
+        x = w * (0.18 + 0.64 * k / 15) + rng.uniform(-10, 10)
+        top = h * rng.uniform(0.0, 0.18)
+        a = rng.uniform(-0.15, 0.15)
+        fw = w * 0.07
+        pts = [(x - fw / 2, top), (x + fw / 2, top), (x + fw / 2 + a * h * 0.4, h * 0.55), (x - fw / 2 + a * h * 0.4, h * 0.55)]
+        d.polygon(pts, fill=(246, 200, 70, 255), outline=(200, 140, 40, 255))
+    d.polygon([(w * 0.05, h * 0.36), (w * 0.95, h * 0.36), (w * 0.82, h), (w * 0.18, h)], fill=(214, 40, 34, 255), outline=(150, 20, 20, 255))
+    d.polygon([(w * 0.05, h * 0.36), (w * 0.5, h * 0.48), (w * 0.95, h * 0.36), (w * 0.93, h * 0.42), (w * 0.5, h * 0.55), (w * 0.07, h * 0.42)], fill=(184, 30, 26, 255))
+    arr = np.asarray(im, np.float32) / 255
+    xs = np.linspace(-1, 1, w)
+    arr[..., :3] *= (0.82 + 0.25 * np.sqrt(np.clip(1 - xs ** 2, 0, 1)))[None, :, None]
+    sp = Image.fromarray((np.clip(arr, 0, 1) * 255).astype(np.uint8), 'RGBA')
+    _SP[key] = sp
+    return sp
+
+def plate_food_sprite(w=760):
+    key = ('plate', w)
+    if key in _SP:
+        return _SP[key]
+    h = int(w * 0.5)
+    lay = Layer(w + 20, h + 20)
+    ellipsoid(lay, (w / 2 + 10, h / 2 + 10), w / 2, h / 2, 0, '#F4F4F0', spec=0.4, shin=30, amb=0.55)
+    ellipsoid(lay, (w / 2 + 10, h / 2 + 6), w * 0.38, h * 0.36, 0, '#E6E6E0', spec=0.2, amb=0.6)
+    sp, _, _ = layer_sprite(lay, 2)
+    d = ImageDraw.Draw(sp)
+    rng = np.random.default_rng(3)
+    for k in range(14):
+        x = w * rng.uniform(0.3, 0.62); y = h * rng.uniform(0.3, 0.62)
+        a = rng.uniform(0, math.pi)
+        L = w * 0.13
+        d.line([(x, y), (x + math.cos(a) * L, y + math.sin(a) * L * 0.5)], fill=(236, 186, 60, 255), width=int(w * 0.035))
+    d.ellipse((w * 0.62, h * 0.34, w * 0.8, h * 0.6), fill=(200, 30, 22, 255))
+    d.ellipse((w * 0.65, h * 0.37, w * 0.7, h * 0.43), fill=(240, 110, 100, 255))
+    _SP[key] = sp
+    return sp
+
+def pile_sprite(w=900, h=240, n=60, seed=5, L=90):
+    key = ('pile', w, h, n, seed, L)
+    if key in _SP:
+        return _SP[key]
+    im = Image.new('RGBA', (w + 200, h + 200), (0, 0, 0, 0))
+    rng = np.random.default_rng(seed)
+    pts = []
+    for _ in range(n):
+        u = rng.uniform(-1, 1)
+        x = w / 2 + u * w / 2
+        top = h * (1 - (1 - u * u) * 0.9)
+        y = rng.uniform(top, h)
+        pts.append((y, x, rng.uniform(0, 360)))
+    for y, x, a in sorted(pts):
+        sp = pill_sprite(L, a)
+        paste_center(im, sp, x + 100, y + 100)
+    _SP[key] = im
+    return im
+
+# ====================================================================== 0: hero bottle firing pills
 class Hook(Base):
-    """Frame 0: a giant hook-and-loop strap being ripped open mid-action, fibers flying."""
-    z0, z1 = 1.12, 1.17
-    LY = 1290      # top of the lower (loop) strip = contact line
-    TH = 300       # strip thickness
-    X0, X1 = -40, 1336
-    HX = 520       # where the top strip leaves the bottom one
+    """Frame 0: a giant ketchup bottle being squeezed, red-and-white pills bursting from the nozzle."""
+    z0, z1 = 1.14, 1.2
+    BC = (500, 1150)
+    ANG = -56
+    BH = 1080
     def make_shakes(self):
-        return [(0.0, 14, 0.35), (self.we('dog.') - 0.02, 14, 0.3)]
+        return [(0.0, 12, 0.3), (self.we('pill') - 0.02, 16, 0.32)]
     def events(self):
-        return [(0.0, 'tape', 0.9), (0.75, 'tape', 0.6), (self.we('because') - 0.03, 'pop', 0.5)]
+        return [(0.0, 'bigpop', 0.8), (0.0, 'rattle', 0.6), (self.we('medicine...') - 0.03, 'ding', 0.6),
+                (self.we('pill') - 0.02, 'boom', 0.7), (self.we('pill') + 0.1, 'rattle', 0.6)]
     def plate(self):
-        img = wall_plate('#FFB65C', '#C24A2A', 7, (CX, 1100, 1300))
-        self.lower = strap_tex(self.X1 - self.X0, self.TH, 'loop', STRAP, 3)
-        self.upper = strap_tex(self.X1 - self.X0, self.TH, 'hook', (56, 64, 92), 4)
-        self.hand = get_hand(640, -2.0)
-        self.burr = burr_sprite(70, 2)
+        img = wall_plate('#FFB65C', '#B8321E', 7, (CX, 1000, 1300), counter=(1690, '#7A4A2A'))
+        b = rot_sprite(bottle_sprite(self.BH), self.ANG)
+        self.bot = b
+        self.bsh = shadow_of(b, 18, 0.5)
+        pile = pile_sprite(1100, 200, 80, 5, 100)
+        paste_center(img, pile, CX + 80, 1930)
+        self.hand = get_hand(600, 0.5)
+        self.medchip = C('+ MEDICINE', 92, bg=(90, 200, 120), fg=(255, 255, 255))
+        self.st = C('IN PILL FORM!', 92, bg=YEL)
         return img
+    def nozzle(self):
+        a = math.radians(-self.ANG)
+        d = self.BH * 0.47
+        return (self.BC[0] + math.sin(a) * d, self.BC[1] - math.cos(a) * d)
     def hero(self, img, t):
-        ly, th = self.LY, self.TH
-        sh, pad = shadow_of(self.lower, 14, 0.45)
-        paste_at(img, sh, self.X0 - pad + 12, ly - pad + 22)
-        paste_at(img, self.lower, self.X0, ly)
-        ang = math.radians(17 + 4 * math.sin(2 * math.pi * t / 1.5) + 1.5 * math.sin(7.3 * t))
-        hx = self.HX
-        # attached part (left) lies on top of the lower strip
-        flat = self.upper.crop((0, 0, hx - self.X0, th))
-        paste_at(img, flat, self.X0, ly - th)
-        # peeled part: hinged at (hx, ly), rotated up by ang
-        L = 600
-        ca, sa = math.cos(ang), math.sin(ang)
-        bl = (hx, ly); br = (hx + L * ca, ly - L * sa)
-        tl = (hx - th * sa, ly - th * ca); tr = (br[0] - th * sa, br[1] - th * ca)
-        peel = self.upper.crop((hx - self.X0 - 4, 0, min(self.upper.width, hx - self.X0 + int(L)), th))
-        _quad_img(img, peel, [tl, tr, br, bl])
-        # the hook side underneath (gap) highlight + fibers flying from the seam
-        ov = OV(img, hx - 80, ly - 480, PW, ly + 40)
-        rng = np.random.default_rng(int(t * 30) % 7)
-        for k in range(16):
-            u = ((t * 1.7 + k * 0.137) % 1.0)
-            r = 40 + 420 * u
-            a = math.radians(-8 - 26 * ((k * 0.61) % 1.0))
-            x = hx + 40 + math.cos(a) * r
-            y = ly - 10 + math.sin(a) * r
-            al = int(255 * (1 - u))
-            ov.d.arc(ov.box(x - 10, y - 10, x + 10, y + 10), 30 * k, 30 * k + 220, fill=(235, 235, 245, al), width=5)
-        ov.commit()
-        tip = ((tr[0] + br[0]) / 2 - 60 * ca, (tr[1] + br[1]) / 2 + 60 * sa)
-        draw_hand(img, self.hand, (tip[0] + 20, tip[1] + 30), 0.35)
-        b = 0.0
-        if type(self) is Hook:
-            u = (t - self.we('dog.') + 0.03) / 0.35
-            if 0 < u < 1:
-                b = math.sin(math.pi * u)
-        self.draw_hdog(img, t, b)
-    def draw_hdog(self, img, t, bounce=0.0):
-        draw_dog(img, 560, CX - 60, 2150 - 60 * bounce, step=0.0, wag=math.sin(t * 14), burrs=6)
+        sq = 0.5 + 0.5 * math.sin(t * 2 * math.pi / 0.75)
+        s = 1.0 + 0.015 * sq
+        sh, pad = self.bsh
+        paste_at(img, sh, self.BC[0] - self.bot.width / 2 - pad + 26, self.BC[1] - self.bot.height / 2 - pad + 34)
+        paste_center(img, self.bot, self.BC[0], self.BC[1], scale=s)
+        # hand squeezing the bottle body
+        draw_hand(img, self.hand, (self.BC[0] - 60 + 14 * sq, self.BC[1] + 290), 0.2)
+        nx, ny = self.nozzle()
+        rng = np.random.default_rng(1)
+        n = 40
+        period = 1.6
+        for k in range(n):
+            age = (t + k * period / n) % period
+            vx = -120 + 420 * ((k * 0.618) % 1.0)
+            vy = -560 + 330 * ((k * 0.377) % 1.0)
+            spin = 400 * (((k * 0.73) % 1.0) - 0.5)
+            x = nx + 20 + vx * age
+            y = ny + vy * age + 0.5 * 1500 * age * age
+            if y > 2100 or x > 1300:
+                continue
+            L = 96 + 40 * ((k * 0.41) % 1.0)
+            sp = pill_sprite(int(L // 8 * 8), spin * age + k * 47)
+            paste_center(img, sp, x, y)
+        glow(img, nx, ny, 160, (255, 230, 200), 0.35 + 0.2 * sq)
     def dyn(self, img, t):
         self.hero(img, t)
+        tM, tP = self.we('medicine...'), self.we('pill')
+        pop(img, self.medchip, CX, 1770, t, tM - 0.06, out_t=tP - 0.12)
+        stamp_in(img, self.st, CX, 1770, t, tP - 0.04)
     def cam(self, t):
         k = clamp01(t / max(self.dur, 0.01))
         z = self.z0 + (self.z1 - self.z0) * ease_in_out(k)
         dx, dy, dr = self.shake(t)
-        return z, CX + dx, 1180 + dy, dr
+        return z, CX + dx, 1140 + dy, dr
 
-def _quad_img(img, tex, corners):
-    lay_w = img.width
-    xs = [c[0] for c in corners]; ys = [c[1] for c in corners]
-    x0, y0 = int(min(xs)) - 4, int(min(ys)) - 4
-    x1, y1 = int(max(xs)) + 4, int(max(ys)) + 4
-    tmp = Layer(x1 - x0, y1 - y0)
-    quad(tmp, tex, [(x - x0, y - y0) for x, y in corners], ss=1)
-    sp, sx, sy = layer_sprite(tmp, 0)
-    sh, pad = shadow_of(sp, 16, 0.5)
-    paste_at(img, sh, x0 + sx - pad + 26, y0 + sy - pad + 34)
-    paste_at(img, sp, x0 + sx, y0 + sy)
-
-# ====================================================================== 1: 1941, Swiss engineer, dog, Alps
-class Alps(Base):
-    z0, z1 = 1.12, 1.22
-    focus = (CX, 1250)
-    def make_shakes(self):
-        return [(self.we('1941,'), 12, 0.28), (self.we('Alps.'), 12, 0.28)]
-    def events(self):
-        return [(0.02, 'swipe', 0.5), (self.we('1941,'), 'thud', 0.7), (self.we('Swiss') - 0.03, 'pop', 0.5),
-                (self.we('George') - 0.03, 'pop', 0.5), (self.we('dog') - 0.02, 'bloop', 0.5), (self.we('trip') - 0.03, 'chime', 0.5)]
-    def plate(self):
-        self.st = stamp_sprite('1941', 150, color=BLUE, angle=-7)
-        return alps_plate()
-    def dyn(self, img, t):
-        tD = self.we('dog')
-        walk = t * 1.4
-        drift = 20 * t
-        draw_man(img, 1120, CX - 300 + drift, 2060, step=walk)
-        if t > tD - 0.1:
-            k = ease_back((t - tD + 0.1) / 0.35, 1.8)
-            draw_dog(img, int(480 * max(0.05, k)), CX + 170 + drift, 2060, step=walk * 1.3, wag=math.sin(t * 12))
-        stamp_in(img, self.st, CX + 270, 1000, t, self.we('1941,'))
-        pop(img, C('SWISS ENGINEER', 72, bg=YEL), CX, 520, t, self.we('Swiss') - 0.05, out_t=self.we('George') - 0.3)
-        pop(img, C('GEORGE DE MESTRAL', 70, bg=WHITE), CX, 520, t, self.we('George') - 0.05, out_t=self.we('Alps.') - 0.3)
-        pop(img, C('THE ALPS', 80, bg=(120, 200, 255)), CX, 520, t, self.we('Alps.') - 0.05)
-
-# ====================================================================== 2: covered in burrs
-class Burrs(Base):
-    z0, z1 = 1.14, 1.24
-    focus = (CX, 1180)
-    def make_shakes(self):
-        return [(self.we('covered'), 12, 0.3), (self.we('burrs.'), 16, 0.32)]
-    def events(self):
-        ev = [(0.02, 'swipe', 0.5), (self.we('home,'), 'pop', 0.5)]
-        t0 = self.we('covered')
-        for k in range(6):
-            ev.append((t0 + k * 0.13, 'pop', 0.45))
-        ev.append((self.we('sticky') - 0.03, 'thud', 0.7))
-        return ev
-    def plate(self):
-        img = wall_plate('#B9E3A6', '#3E7A3A', 11, (CX, 1000, 1300))
-        ov = OV(img, 0, 1500, PW, PH)
-        ov.d.rectangle((0, 0, PW, PH - 1500), fill=(130, 92, 58, 255))
-        for y in range(40, PH - 1500, 110):
-            ov.d.line([(0, y), (PW, y + 8)], fill=(105, 72, 44, 255), width=5)
-        ov.commit()
-        self.st = stamp_sprite('STICKY BURRS!', 120, color=RED, angle=-6)
-        self.pants = Image.new('RGBA', (240, 1000), (0, 0, 0, 0))
-        d = ImageDraw.Draw(self.pants)
-        d.polygon([(10, 0), (230, 0), (220, 940), (20, 940)], fill=(70, 96, 150, 255))
-        d.line([(120, 30), (120, 930)], fill=(50, 70, 120, 255), width=6)
-        d.ellipse((0, 900, 240, 1000), fill=(60, 40, 30, 255))
-        return img
-    def dyn(self, img, t):
-        tC = self.we('covered')
-        n = 0 if t < tC else min(12, 1 + int((t - tC) / 0.1))
-        paste_at(img, self.pants, 150, 560)
-        paste_at(img, self.pants, 400, 560)
-        ov = OV(img, 120, 520, 740, 640)
-        ov.d.rounded_rectangle(ov.box(140, 530, 720, 620), 20, fill=(60, 50, 40, 255))
-        ov.commit()
-        draw_dog(img, 640, CX + 120, 1560, step=0.0, wag=math.sin(t * 10), burrs=n)
-        rng = np.random.default_rng(8)
-        for k in range(min(8, n)):
-            b = burr_sprite(46, k + 10)
-            x = 170 + (k % 2) * 250 + float(rng.uniform(20, 180))
-            y = 700 + (k // 2) * 200 + float(rng.uniform(-30, 30))
-            paste_center(img, b, x, y)
-        pop(img, C('BACK HOME...', 76, bg=WHITE), CX, 520, t, self.we('home,') - 0.05, out_t=tC - 0.3)
-        pop(img, C("HIS PANTS + DOG'S FUR", 64, bg=YEL), CX, 520, t, tC - 0.05)
-        stamp_in(img, self.st, CX, 1800, t, self.we('burrs.') - 0.05)
-
-# ====================================================================== 3: pull off vs microscope
-class Microscope(Base):
-    z0, z1 = 1.14, 1.24
-    focus = (CX, 1150)
-    def make_shakes(self):
-        return [(self.we('microscope.') - 0.05, 16, 0.32)]
-    def events(self):
-        return [(0.02, 'swipe', 0.5), (self.we('pull'), 'tape', 0.6), (self.we('but'), 'swipe', 0.6),
-                (self.we('under') - 0.03, 'ding', 0.7)]
-    def plate(self):
-        img = wall_plate('#2E4A5A', '#0E1A22', 5, (CX, 1000, 1200))
-        ov = OV(img, 0, 1600, PW, PH)
-        ov.d.rectangle((0, 0, PW, PH - 1600), fill=(120, 84, 52, 255))
-        ov.d.rectangle((0, 0, PW, 22), fill=(160, 116, 74, 255))
-        ov.commit()
-        self.mic = microscope_sprite(1080)
-        self.burr = burr_sprite(120, 3)
-        self.hand = get_hand(600, -1.7)
-        self.st = stamp_sprite('MICROSCOPE!', 120, color=BLUE, angle=-6)
-        return img
-    def dyn(self, img, t):
-        tB = self.we('but')
-        if t < tB:
-            k = clamp01((t - self.we('pull')) / 0.5)
-            bx, by = CX, 1050 - 380 * ease_out(k)
-            draw_dog(img, 820, CX - 40, 1600 + 200, step=0.0, wag=math.sin(t * 9), burrs=6)
-            paste_center(img, self.burr, bx, by, scale=0.8)
-            draw_hand(img, self.hand, (bx + 30, by + 20), 0.3)
-            pop(img, C('MOST PEOPLE: PULL IT OFF', 60, bg=WHITE), CX, 520, t, 0.05)
-        else:
-            k = ease_back((t - tB) / 0.35, 1.6)
-            mx, my = CX + 40, 1620
-            sh, pad = shadow_of(self.mic, 18, 0.45)
-            paste_at(img, sh, mx - self.mic.width / 2 - pad + 20, my - self.mic.height - pad + 30)
-            paste_center(img, self.mic, mx, my - self.mic.height / 2, scale=max(0.05, k))
-            if k > 0.9:
-                paste_center(img, self.burr, mx - 120, my - self.mic.height * 0.4, scale=0.45)
-                glow(img, mx - 120, my - self.mic.height * 0.4, 200, (255, 255, 200), 0.4 + 0.2 * math.sin(t * 9))
-            pop(img, C('HE PUT ONE UNDER A...', 60, bg=YEL), CX, 520, t, tB - 0.05)
-            stamp_in(img, self.st, CX, 1820, t, self.we('microscope.') - 0.05)
-
-# ====================================================================== 4: thousands of tiny hooks grabbing loops
-def hooks_sprite(w, h, seed=1):
-    im = Image.new('RGBA', (w, h), (0, 0, 0, 0))
-    d = ImageDraw.Draw(im)
-    d.rectangle((0, 0, w, int(h * 0.32)), fill=(120, 82, 40, 255))
-    rng = np.random.default_rng(seed)
-    for x in range(40, w - 20, 92):
-        x = x + float(rng.uniform(-14, 14))
-        y0 = h * 0.3
-        y1 = h * 0.3 + float(rng.uniform(170, 230))
-        d.line([(x, y0), (x, y1)], fill=(176, 130, 70, 255), width=22)
-        d.arc((x - 2, y1 - 34, x + 64, y1 + 34), 0, 180, fill=(176, 130, 70, 255), width=22)
-        d.line([(x + 62, y1), (x + 62, y1 - 34)], fill=(176, 130, 70, 255), width=20)
-    return im
-
-def loops_sprite(w, h, seed=2):
-    im = Image.new('RGBA', (w, h), (0, 0, 0, 0))
-    d = ImageDraw.Draw(im)
-    d.rectangle((0, int(h * 0.6), w, h), fill=(70, 96, 150, 255))
-    for x in range(60, w - 20, 92):
-        y = h * 0.62
-        d.ellipse((x - 10, y - 250, x + 80, y + 30), outline=(150, 180, 235, 255), width=16)
-    return im
-
-class TinyHooks(Base):
-    z0, z1 = 1.14, 1.22
-    focus = (CX, 1150)
-    R = 540
-    def make_shakes(self):
-        return [(self.we('grabbing'), 16, 0.34)]
-    def events(self):
-        return [(0.02, 'ding', 0.5), (self.we('thousands'), 'pop', 0.6), (self.we('hooks,'), 'tick', 0.5),
-                (self.we('grabbing'), 'thud', 0.8), (self.we('grabbing') + 0.05, 'tape', 0.6), (self.we('loop'), 'pop', 0.5)]
-    def plate(self):
-        img = wall_plate('#1F2E3A', '#0A1016', 13, (CX, 1000, 1200))
-        R = self.R
-        self.hk = hooks_sprite(2 * R, 2 * R)
-        self.lp = loops_sprite(2 * R, 2 * R)
-        m = Image.new('L', (2 * R, 2 * R), 0)
-        ImageDraw.Draw(m).ellipse((0, 0, 2 * R - 1, 2 * R - 1), fill=255)
-        self.mask = m
-        rim = Image.new('RGBA', (2 * R + 80, 2 * R + 80), (0, 0, 0, 0))
-        dr = ImageDraw.Draw(rim)
-        dr.ellipse((0, 0, 2 * R + 79, 2 * R + 79), outline=(30, 30, 36, 255), width=56)
-        dr.ellipse((30, 30, 2 * R + 49, 2 * R + 49), outline=(120, 126, 140, 255), width=10)
-        self.rim = rim
-        self.st = stamp_sprite('HOOKED!', 150, color=RED, angle=-8)
-        return img
-    def dyn(self, img, t):
-        R = self.R
-        tG = self.we('grabbing')
-        k = ease_out((t - tG + 0.1) / 0.4)
-        view = Image.new('RGBA', (2 * R, 2 * R), (235, 240, 230, 255))
-        view.alpha_composite(self.lp, (0, int(260 - 300 * k)))
-        view.alpha_composite(self.hk, (0, int(-40 + 10 * math.sin(t * 3))))
-        view.putalpha(self.mask)
-        cx, cy = CX, 1020
-        paste_at(img, view, cx - R, cy - R)
-        paste_at(img, self.rim, cx - R - 40, cy - R - 40)
-        pop(img, C('THOUSANDS OF TINY HOOKS', 60, bg=YEL), CX, 380, t, self.we('thousands') - 0.05)
-        stamp_in(img, self.st, CX, 1800, t, tG)
-        pop(img, C('LOOPS', 70, bg=(150, 180, 235)), CX + 380, 1500, t, self.we('loop') - 0.05)
-
-# ====================================================================== 5: copy a weed with cloth
-class CopyWeed(Base):
+# ====================================================================== 1: no tomatoes
+class NoTomato(Base):
     z0, z1 = 1.16, 1.26
-    focus = (CX, 1150)
     def make_shakes(self):
-        return [(self.we('weed'), 16, 0.32)]
+        return [(self.we("didn't"), 16, 0.32)]
     def events(self):
-        return [(0.02, 'swipe', 0.5), (self.we('copy'), 'swipe', 0.5), (self.we('weed'), 'boom', 0.6)]
+        return [(0.02, 'swipe', 0.5), (self.we('first') - 0.03, 'pop', 0.5), (self.we("didn't"), 'buzzer', 0.7), (self.we('even'), 'crack', 0.5)]
     def plate(self):
-        img = wall_plate('#F7E3B5', '#B98A47', 23, (CX, 1000, 1300))
-        self.burr = burr_sprite(190, 6)
-        self.arr = arrow_sprite(260, 130)
-        self.strip = strap_tex(420, 560, 'hook', (56, 64, 92), 6).rotate(-8, resample=Image.BICUBIC, expand=True)
-        self.st = stamp_sprite('COPY A WEED?!', 120, color=RED, angle=-6)
+        img = wall_plate('#FFE2A8', '#C8702E', 2, (CX, 1000, 1200), counter=(1640, '#8A5A34'))
+        self.tom = tomato_sprite(300)
+        self.bot = bottle_sprite(640)
+        self.st = stamp_sprite('NO TOMATOES', 120, color=RED, angle=-7)
         return img
     def dyn(self, img, t):
-        tC, tW = self.we('copy'), self.we('cloth.')
-        paste_center(img, self.burr, CX - 270, 1100 + 10 * math.sin(t * 6), scale=0.8 + 0.03 * math.sin(t * 8))
-        pop(img, self.arr, CX + 10, 1100, t, tC - 0.05)
-        if t > tW - 0.25:
-            sh, pad = shadow_of(self.strip, 14, 0.45)
-            k = ease_back((t - tW + 0.25) / 0.3, 1.8)
-            paste_center(img, self.strip, CX + 290, 1100, scale=max(0.05, k) * 0.8)
-        pop(img, C('BURR', 80, bg=WHITE), CX - 270, 760, t, 0.05)
-        pop(img, C('CLOTH', 80, bg=YEL), CX + 290, 760, t, tW - 0.2)
-        stamp_in(img, self.st, CX, 1800, t, self.we('weed'))
+        tD = self.we("didn't")
+        with_shadow(img, self.bot, CX - 300, 1240 + 6 * math.sin(t * 5), a=0.4)
+        bob = 10 * math.sin(t * 6)
+        pop(img, self.tom, CX + 200, 980 + bob, t, 0.0, dur=0.25)
+        pop(img, C('THE FIRST KETCHUP', 74, bg=WHITE), CX, 520, t, self.we('first') - 0.08)
+        if t > tD:
+            red_x(img, CX + 200, 980, 250, clamp01((t - tD) / 0.3))
+        stamp_in(img, self.st, CX, 1830, t, tD + 0.05)
 
-# ====================================================================== 6: cotton wore out, nylon, ~10 years
-class Nylon(Base):
-    z0, z1 = 1.14, 1.22
-    focus = (CX, 1150)
+# ====================================================================== 2: fish sauce, China + SE Asia, ke-tsiap
+class FishSauce(Base):
+    z0, z1 = 1.16, 1.25
     def make_shakes(self):
-        return [(self.we('fast,'), 14, 0.3), (self.we('ten'), 14, 0.3)]
+        return [(self.we('fish'), 12, 0.28), (self.we('called') + 0.25, 16, 0.32)]
     def events(self):
-        ev = [(0.02, 'swipe', 0.5), (self.we('wore'), 'crack', 0.6), (self.we('fast,'), 'buzzer', 0.6),
-              (self.we('nylon,'), 'ding', 0.7)]
-        tT = self.we('took')
-        for k in range(8):
-            ev.append((tT + k * 0.11, 'tick', 0.4))
-        return ev
+        return [(0.02, 'swipe', 0.5), (self.we('salty') - 0.03, 'pop', 0.5), (self.we('fish'), 'splat', 0.6),
+                (self.we('China') - 0.03, 'pop', 0.5), (self.we('Southeast') - 0.03, 'pop', 0.5), (self.we('called') + 0.2, 'boom', 0.6)]
     def plate(self):
-        img = wall_plate('#BFE3E0', '#4E8C8A', 13, (CX, 1000, 1300))
-        self.cot = strap_tex(900, 260, 'loop', (226, 210, 180), 8)
-        self.nyl = strap_tex(900, 260, 'hook', (40, 110, 200), 9)
-        self.chk = check_sprite(80)
-        self.cal = [calendar_page(n, 300) for n in range(1, 11)]
+        img = wall_plate('#E8C48A', '#7A3A1A', 9, (CX, 1000, 1300), counter=(1660, '#6A4024'))
+        self.jar = jar_sprite(700)
+        self.fish = [fish_sprite(330, c) for c in ('#8FA9BF', '#A9B8C4', '#7F98B0')]
+        self.word = word_sprite([('KÊ-', YEL), ('TSIAP', WHITE)], 190)
         return img
     def dyn(self, img, t):
-        tW, tN, tT = self.we('wore'), self.we('nylon,'), self.we('took')
-        k = ease_out((t - tW - 0.1) / 0.5)
-        y = 820
-        if t < tN + 0.3:
-            l = self.cot.crop((0, 0, 450, 260)).rotate(-8 * k, resample=Image.BICUBIC, expand=True)
-            r = self.cot.crop((450, 0, 900, 260)).rotate(10 * k, resample=Image.BICUBIC, expand=True)
-            paste_center(img, l, CX - 225 - 60 * k, y + 50 * k)
-            paste_center(img, r, CX + 225 + 60 * k, y + 70 * k)
-            red_x(img, CX, y, 170, clamp01((t - self.we('fast,')) / 0.3))
-            pop(img, C('COTTON WORE OUT', 66, bg=WHITE), CX, 520, t, 0.05, out_t=tN - 0.3)
-        if t > tN - 0.1:
-            kk = ease_back((t - tN + 0.1) / 0.3, 1.8)
-            paste_center(img, self.nyl, CX, y + 20, scale=max(0.05, kk))
-            pop(img, self.chk, CX + 420, y - 120, t, tN + 0.1)
-            pop(img, C('NYLON WORKED!', 76, bg=(110, 220, 130)), CX, 520, t, tN - 0.05)
-        if t > tT:
-            n = min(10, 1 + int((t - tT) / 0.11))
-            pop(img, self.cal[n - 1], CX, 1820, t, tT)
-            pop(img, C('NEARLY 10 YEARS', 66, bg=YEL), CX, 1210, t, self.we('ten') - 0.05)
-
-# ====================================================================== 7: the name
-class Name(Base):
-    z0, z1 = 1.14, 1.22
-    focus = (CX, 1150)
-    def make_shakes(self):
-        return [(self.we('Velcro,'), 14, 0.3)]
-    def events(self):
-        return [(0.02, 'swipe', 0.5), (self.we('Velcro,'), 'boom', 0.6), (self.we('French'), 'chime', 0.5),
-                (self.we('velvet'), 'pop', 0.6), (self.we('and') - 0.03, 'pop', 0.6)]
-    def plate(self):
-        img = wall_plate('#B0306A', '#3A0E2A', 17, (CX, 1000, 1300))
-        self.big = word_sprite([('VEL', YEL), ('CRO', (110, 220, 255))], 250)
-        self.c1 = word_sprite([('VEL', YEL), ('OURS', WHITE)], 130)
-        self.c2 = word_sprite([('CRO', (110, 220, 255)), ('CHET', WHITE)], 130)
-        return img
-    def dyn(self, img, t):
-        tV, tF, tVe, tH = self.we('Velcro,'), self.we('French'), self.we('velvet'), self.we('hook.')
-        pop(img, self.big, CX, 760, t, tV - 0.08)
-        pop(img, C('FRENCH WORDS', 70, bg=WHITE), CX, 520, t, tF - 0.05)
-        pop(img, self.c1, CX, 1060, t, tVe - 0.15)
-        pop(img, C('= VELVET', 64, bg=YEL), CX, 1210, t, tVe - 0.05)
-        pop(img, self.c2, CX, 1720, t, tH - 0.25)
-        pop(img, C('= HOOK', 64, bg=(110, 220, 255)), CX, 1870, t, tH - 0.12)
-
-# ====================================================================== 8: nobody cared
-class NobodyCared(Base):
-    def make_shakes(self):
-        return [(self.we('nobody'), 16, 0.32)]
-    def events(self):
-        return [(0.02, 'swipe', 0.5), (self.we('nobody'), 'buzzer', 0.7), (self.we('cared'), 'bloop', 0.5)]
-    def plate(self):
-        img = wall_plate('#E9D7B8', '#9C7A55', 11, (CX, 1000, 1300))
-        ov = OV(img, 0, 1380, PW, PH)
-        ov.d.rectangle((0, 0, PW, PH - 1380), fill=(150, 96, 52, 255))
-        ov.d.rectangle((0, 0, PW, 24), fill=(180, 120, 70, 255))
-        ov.commit()
-        lay = Layer()
-        for x in (CX - 350, CX + 350):
-            mannequin(lay, x, 1560, 980)
-        img = to_img(finish(to_arr(img), lay, (16, 24, 16, 0.4))).convert('RGBA')
-        self.q = qmark(190)
-        self.strip = strap_tex(420, 300, 'loop', STRAP, 12)
-        self.st = stamp_sprite('NOBODY CARED', 120, color=RED, angle=-6)
-        return img
-    def dyn(self, img, t):
-        tN = self.we('nobody')
-        paste_center(img, self.strip, CX, 1000 + 12 * math.sin(t * 5))
-        for k, (x, y) in enumerate(((CX - 350, 640), (CX + 350, 640))):
-            pop(img, self.q, x, y + 10 * math.sin(t * 6 + k), t, tN + k * 0.12)
-        pop(img, C('AT FIRST...', 80, bg=WHITE), CX, 520, t, 0.05)
-        stamp_in(img, self.st, CX, 1820, t, tN)
-
-# ====================================================================== 9: NASA / Apollo, no more floating
-class Apollo(Base):
-    z0, z1 = 1.14, 1.22
-    focus = (CX, 1180)
-    def make_shakes(self):
-        return [(self.we('stop'), 14, 0.3), (self.we('suddenly'), 14, 0.3)]
-    def events(self):
-        ev = [(0.02, 'swipe', 0.5), (self.we('NASA'), 'pop', 0.5), (self.we('Apollo'), 'riser', 0.4),
-              (self.we('stop'), 'thud', 0.8), (self.we('floating'), 'tape', 0.6), (self.we('suddenly'), 'party', 0.7)]
-        tE = self.we('everyone')
+        tF, tC = self.we('fish'), self.we('called')
+        jy = 980
         for k in range(3):
-            ev.append((tE + k * 0.15, 'pop', 0.45))
-        return ev
+            t0 = tF - 0.5 + k * 0.35
+            u = (t - t0) / 0.7
+            if 0 <= u <= 1:
+                x = CX + (-420 + 840 * ((k * 0.6) % 1)) * (1 - u)
+                y = 700 + (jy - 740) * u - 380 * math.sin(math.pi * u) * (1 - u)
+                sp = self.fish[k].rotate(-60 * u + 20, resample=Image.BICUBIC, expand=True)
+                paste_center(img, sp, x, y)
+        with_shadow(img, self.jar, CX, jy + 120, a=0.45)
+        if t > tF + 0.15:
+            for k in range(6):
+                u = ((t - tF - 0.15) * 1.2 + k / 6) % 1
+                glow(img, CX - 150 + 60 * k, 680 - 100 * u, 30, (240, 230, 210), 0.5 * (1 - u))
+        pop(img, C('SALTY FISH SAUCE', 72, bg=WHITE), CX, 520, t, self.we('salty') - 0.06, out_t=self.we('China') - 0.15)
+        pop(img, C('CHINA', 74, bg=YEL), CX - 230, 520, t, self.we('China') - 0.06, out_t=tC + 0.1)
+        pop(img, C('SE ASIA', 74, bg=(120, 210, 255)), CX + 230, 520, t, self.we('Southeast') - 0.06, out_t=tC + 0.1)
+        pop(img, self.word, CX, 560, t, tC + 0.18)
+        pop(img, C('THE ORIGINAL "KETCHUP"', 58, bg=WHITE), CX, 1820, t, tC + 0.3)
+
+# ====================================================================== 3: sailors to Europe, anchovies walnuts oysters
+class Sailors(Base):
+    z0, z1 = 1.16, 1.24
+    def make_shakes(self):
+        return [(self.we('oysters.'), 14, 0.3)]
+    def tcut(self):
+        return self.we('cooks') - 0.08
+    def events(self):
+        return [(0.02, 'wind', 0.6), (self.we('Europe,') - 0.03, 'pop', 0.5), (self.tcut(), 'swipe', 0.5),
+                (self.we('anchovies,') - 0.03, 'pop', 0.6), (self.we('walnuts,') - 0.03, 'pop', 0.6),
+                (self.we('even') - 0.03, 'bigpop', 0.6)]
     def plate(self):
-        img = space_wall_plate()
-        self.strip = strap_tex(1000, 150, 'loop', STRAP, 14)
-        self.items = [pen_sprite(), spoon_sprite(), pouch_sprite('SNACK')]
-        self.shoes = [shoe_sprite(380, c) for c in ((220, 70, 60), (60, 140, 220), (250, 190, 50))]
+        self.sea = sea_plate()
+        self.ship = ship_sprite(820)
+        self.fish = fish_sprite(400, '#9FB4C6', 0.1)
+        self.nut = walnut_sprite(150)
+        self.oy = oyster_sprite(170)
+        self.jar = jar_sprite(420)
+        return table_plate(5)
+    def dyn(self, img, t):
+        tc = self.tcut()
+        if t < tc:
+            img.paste(self.sea, (0, 0))
+            bob = 18 * math.sin(t * 3)
+            x = CX - 160 + 90 * t
+            sp = self.ship.rotate(3 * math.sin(t * 2.4), resample=Image.BICUBIC, expand=True)
+            paste_center(img, sp, x, 1020 + bob)
+            ov = OV(img, 0, 1340, PW, 1480)
+            for k in range(-1, 14):
+                xx = k * 110 + (t * 140) % 110
+                ov.d.arc(ov.box(xx, 1360, xx + 110, 1440), 200, 340, fill=(255, 255, 255, 200), width=10)
+            ov.commit()
+            pop(img, C('TO EUROPE', 82, bg=WHITE), CX, 520, t, self.we('Europe,') - 0.08)
+            return
+        u = t - tc
+        pop(img, C('ENGLISH KETCHUP WAS MADE OF...', 50, bg=WHITE), CX, 520, u + tc, tc)
+        items = [(self.fish, 'ANCHOVIES', self.we('anchovies,'), (CX - 250, 680)),
+                 (self.nut, 'WALNUTS', self.we('walnuts,'), (CX + 250, 680)),
+                 (self.oy, 'OYSTERS', self.we('oysters.'), (CX, 1070))]
+        for k, (sp, lab, tw, (x, y)) in enumerate(items):
+            if t > tw - 0.1:
+                with_shadow(img, sp, x, y + 8 * math.sin(t * 5 + k), a=0.4) if t > tw + 0.2 else pop(img, sp, x, y, t, tw - 0.1)
+                pop(img, C(lab, 66, bg=YEL if k != 1 else (120, 210, 255)), x, y + (140 if k < 2 else 175), t, tw - 0.05)
+        with_shadow(img, self.jar, CX, 1860, a=0.4)
+
+# ====================================================================== 4: 1812 recipe
+class Recipe(Base):
+    z0, z1 = 1.16, 1.25
+    def make_shakes(self):
+        return [(self.we('1812,'), 16, 0.3), (self.we('first'), 12, 0.28)]
+    def events(self):
+        return [(0.02, 'swipe', 0.5), (self.we('1812,'), 'thud', 0.8), (self.we('Philadelphia') - 0.03, 'pop', 0.5),
+                (self.we('published') - 0.03, 'scratch', 0.6), (self.we('first') - 0.03, 'ding', 0.6)]
+    def plate(self):
+        img = wall_plate('#DCEBF4', '#6C8CA8', 4, (CX, 1000, 1300))
+        self.card = card_sprite(620, 760)
+        self.tom = tomato_sprite(110)
+        self.st = stamp_sprite('1812', 170, color=BLUE, angle=-8)
         return img
     def dyn(self, img, t):
-        tS, tSu = self.we('stop'), self.we('suddenly')
-        sy = 1300
-        paste_center(img, self.strip, CX, sy)
-        k = ease_out((t - tS + 0.15) / 0.35)
-        homes = [(CX - 330, 330), (CX - 20, 330), (CX + 310, 330)]
-        floats = [(CX - 330, 930, 40), (CX + 30, 800, -60), (CX + 310, 1000, 25)]
-        for j, (sp, (hx, _), (fx, fy, rot)) in enumerate(zip(self.items, homes, floats)):
-            ft = t * 0.9 + j * 1.7
-            x = fx + 40 * math.sin(ft)
-            y = fy + 50 * math.sin(ft * 1.3)
-            a = rot + 25 * math.sin(ft * 0.8) + 30 * t
-            ty = sy - sp.height * 0.35 + 40
-            xx = x + (hx - x) * k
-            yy = y + (ty - y) * k
-            aa = a * (1 - k)
-            r = sp.rotate(aa, resample=Image.BICUBIC, expand=True)
-            paste_center(img, r, xx, yy)
-        if t > tSu - 0.1:
-            for j, x in enumerate((CX - 380, CX, CX + 380)):
-                pop(img, self.shoes[j], x, 1830 + (j % 2) * 40, t, self.we('everyone') + j * 0.15)
-        pop(img, C('NASA: APOLLO MISSIONS', 62, bg=WHITE), CX, 520, t, self.we('NASA') - 0.05, out_t=tS - 0.3)
-        pop(img, C('NO MORE FLOATING!', 72, bg=YEL), CX, 520, t, tS - 0.05, out_t=tSu - 0.3)
-        pop(img, C('SUDDENLY EVERYONE WANTED IT', 54, bg=(110, 220, 130)), CX, 520, t, tSu - 0.05)
+        tP = self.we('published')
+        ang = 4 * math.sin(t * 1.5)
+        cs = self.card.rotate(ang, resample=Image.BICUBIC, expand=True)
+        y = 1060 + (1 - ease_out(t / 0.4)) * 300
+        with_shadow(img, cs, CX, y, a=0.45)
+        if t > tP:
+            ov = OV(img, CX - 300, y - 120, CX + 300, y + 340)
+            q = clamp01((t - tP) / 0.9)
+            for k in range(int(q * 8)):
+                yy = y - 120 + k * 56 + 10
+                ov.d.line(ov.pts([(CX - 250, yy), (CX + 200 - (k * 37 % 140), yy)]), fill=(60, 30, 20, 255), width=8)
+            ov.commit()
+        for k, (x, yy) in enumerate(((CX - 330, 720), (CX + 330, 760), (CX + 300, 1360))):
+            pop(img, self.tom, x, yy + 8 * math.sin(t * 6 + k), t, self.we('tomato') - 0.1 + 0.08 * k)
+        stamp_in(img, self.st, CX + 280, 640, t, self.we('1812,'))
+        pop(img, C('PHILADELPHIA SCIENTIST', 60, bg=WHITE), CX, 1760, t, self.we('Philadelphia') - 0.06, out_t=self.we('first') - 0.15)
+        pop(img, C('ONE OF THE FIRST TOMATO RECIPES', 50, bg=YEL), CX, 1760, t, self.we('first') - 0.06)
 
-# ====================================================================== 10: people think NASA invented it -> loops to the hook
+# ====================================================================== 5: Americans scared of tomatoes
+class Scared(Base):
+    z0, z1 = 1.18, 1.3
+    def make_shakes(self):
+        return [(self.we('scared'), 18, 0.4)]
+    def events(self):
+        return [(0.02, 'swipe', 0.5), (self.we('Americans'), 'pop', 0.5), (self.we('scared'), 'bloop', 0.7)]
+    def plate(self):
+        img = wall_plate('#C9E3B0', '#4E7A3A', 12, (CX, 1000, 1300), counter=(1760, '#6A4A2A'))
+        lay = Layer()
+        for x in (CX - 380, CX + 380):
+            mannequin(lay, x, 1900, 1000)
+        img = to_img(finish(to_arr(img), lay, (16, 24, 16, 0.4))).convert('RGBA')
+        self.tom = tomato_sprite(220)
+        self.q = qmark(170, txt='!?')
+        self.st = stamp_sprite('SCARY?!', 150, color=RED, angle=-8)
+        return img
+    def dyn(self, img, t):
+        tS = self.we('scared')
+        k = 1 + 0.06 * math.sin(t * 9)
+        paste_center(img, self.tom, CX, 1100 + 14 * math.sin(t * 7), scale=k)
+        for j, x in enumerate((CX - 380, CX + 380)):
+            pop(img, self.q, x, 760 + 10 * math.sin(t * 10 + j), t, tS - 0.15 + j * 0.1)
+            if t > tS:
+                for d in range(2):
+                    u = ((t - tS) * 1.5 + d * 0.5) % 1
+                    glow(img, x + (50 if d else -50), 920 + 120 * u, 18, (150, 210, 255), 1 - u)
+        pop(img, C('LOTS OF AMERICANS...', 66, bg=WHITE), CX, 520, t, self.we('Americans') - 0.08)
+        stamp_in(img, self.st, CX, 1800, t, tS + 0.05)
+    def cam(self, t):
+        z, fx, fy, rot = super().cam(t)
+        return z, fx, 1140 + (fy - 1100), rot
+
+# ====================================================================== 6: Ohio doctor 1830s
+class Doctor(Base):
+    z0, z1 = 1.16, 1.24
+    def make_shakes(self):
+        return [(self.we('1830s,'), 14, 0.3), (self.we('diarrhea'), 12, 0.28)]
+    def events(self):
+        return [(0.02, 'swipe', 0.5), (self.we('1830s,'), 'thud', 0.8), (self.we('Ohio') - 0.03, 'pop', 0.5),
+                (self.we('claimed') - 0.03, 'riser', 0.4), (self.we('diarrhea') - 0.03, 'pop', 0.6),
+                (self.we('and') - 0.03, 'pop', 0.6)]
+    def plate(self):
+        img = wall_plate('#F4EEE2', '#8A9AA6', 6, (CX, 1000, 1300), counter=(1700, '#5A4A3E'))
+        lay = Layer()
+        mannequin(lay, CX - 290, 1880, 1120)
+        img = to_img(finish(to_arr(img), lay, (16, 24, 16, 0.4))).convert('RGBA')
+        self.bag = bag_sprite(420)
+        self.tom = tomato_sprite(180)
+        self.st = stamp_sprite('1830s', 150, color=BLUE, angle=-8)
+        self.ck = check_sprite(46)
+        return img
+    def dyn(self, img, t):
+        tC, tD, tI = self.we('claimed'), self.we('diarrhea'), self.we('indigestion.')
+        if t > tC - 0.1:
+            u = ease_back((t - tC + 0.1) / 0.4, 1.8)
+            glow(img, CX + 250, 950, 260, (255, 240, 160), 0.6 * clamp01(u))
+            paste_center(img, self.tom, CX + 250, 950 + 10 * math.sin(t * 5), scale=max(0.05, u))
+        stamp_in(img, self.st, CX + 200, 650, t, self.we('1830s,'))
+        pop(img, C('OHIO DOCTOR', 72, bg=WHITE), CX - 170, 520, t, self.we('Ohio') - 0.08)
+        for k, (lab, tw) in enumerate((('DIARRHEA', tD), ('INDIGESTION', tI))):
+            y = 1770 + k * 150
+            pop(img, C(lab + '?', 62, bg=YEL), CX + 40, y, t, tw - 0.06)
+            pop(img, self.ck, CX + 330, y, t, tw + 0.1)
+    def cam(self, t):
+        z, fx, fy, rot = super().cam(t)
+        return z, fx, fy + 60 * clamp01((t - self.we('diarrhea') + 0.3) / 0.5), rot
+
+# ====================================================================== 7: tomato extract into pills
+class Pills(Base):
+    z0, z1 = 1.16, 1.26
+    def make_shakes(self):
+        return [(self.we('pills.'), 14, 0.3)]
+    def events(self):
+        ev = [(0.02, 'swipe', 0.5), (self.we('sellers') - 0.03, 'cash', 0.6), (self.we('extract') - 0.03, 'splat', 0.6)]
+        for k in range(4):
+            ev.append((self.we('into') - 0.05 + k * 0.08, 'tick', 0.5))
+        return ev
+    def plate(self):
+        img = wall_plate('#FFD9C2', '#B04A3A', 14, (CX, 1000, 1300), counter=(1720, '#7A4A2A'))
+        self.pb = pill_bottle_sprite(720)
+        self.tom = tomato_sprite(170)
+        return img
+    def dyn(self, img, t):
+        tE, tP = self.we('extract'), self.we('pills.')
+        with_shadow(img, self.pb, CX, 1600, a=0.45)
+        # tomatoes squash into pills that drop into the bottle
+        for k in range(5):
+            t0 = 0.2 + k * 0.7
+            u = (t - t0) / 0.9
+            if u < 0 or u > 1:
+                continue
+            x = CX + (-260 + 130 * k) * (1 - u)
+            y = 780 + (1330 - 780) * u
+            if u < 0.45:
+                paste_center(img, self.tom, x, y, scale=1 - 1.4 * u)
+            else:
+                paste_center(img, pill_sprite(110, 90 + 200 * u + k * 30), x, y)
+        pop(img, C('$ SELLERS $', 74, bg=(110, 220, 130)), CX, 520, t, self.we('sellers') - 0.08, out_t=tE - 0.15)
+        pop(img, C('TOMATO EXTRACT', 72, bg=YEL), CX, 520, t, tE - 0.08)
+
+# ====================================================================== 8: twist - no tomato, laxatives
+class Twist(Base):
+    z0, z1 = 1.18, 1.28
+    def make_shakes(self):
+        return [(self.we('no'), 18, 0.35), (self.we('laxatives.'), 14, 0.3)]
+    def events(self):
+        return [(0.02, 'riser', 0.5), (self.we('twist?'), 'crack', 0.7), (self.we('no'), 'buzzer', 0.8),
+                (self.we('just') - 0.03, 'bloop', 0.7)]
+    def plate(self):
+        img = wall_plate('#4A2A6A', '#150A22', 21, (CX, 1000, 1300))
+        self.h0 = half_pill(560, 0)
+        self.h1 = half_pill(560, 1)
+        self.tom = tomato_sprite(90)
+        self.tp = tp_sprite(130)
+        self.st = stamp_sprite('NO TOMATO!', 140, color=RED, angle=-7)
+        return img
+    def dyn(self, img, t):
+        tT, tN, tJ = self.we('twist?'), self.we('no'), self.we('just')
+        split = ease_out((t - tT - 0.1) / 0.5) if t > tT + 0.1 else 0
+        x0 = CX - 115 - 190 * split
+        x1 = CX + 115 + 190 * split
+        y = 1000 + 8 * math.sin(t * 6)
+        r0 = self.h0.rotate(-12 * split, resample=Image.BICUBIC, expand=True)
+        r1 = self.h1.rotate(12 * split, resample=Image.BICUBIC, expand=True)
+        with_shadow(img, r0, x0, y, a=0.5)
+        with_shadow(img, r1, x1, y, a=0.5)
+        if split > 0.3:
+            ov = OV(img, CX - 120, y - 200, CX + 120, y + 200)
+            for k in range(8):
+                u = ((t * 1.3) + k / 8) % 1
+                xx = CX - 60 + (k * 37 % 120)
+                ov.d.ellipse(ov.box(xx - 6, y + 60 - 200 * u - 6, xx + 6, y + 60 - 200 * u + 6), fill=(240, 240, 230, int(200 * (1 - u))))
+            ov.commit()
+        pop(img, C('THE TWIST?', 80, bg=YEL), CX, 520, t, 0.02, out_t=tN - 0.2)
+        if t > tN - 0.1:
+            paste_center(img, self.tom, CX, 560)
+            red_x(img, CX, 560, 90, clamp01((t - tN) / 0.25))
+        stamp_in(img, self.st, CX, 1640, t, tN + 0.05)
+        if t > tJ - 0.1:
+            pop(img, self.tp, CX - 270, 1940, t, tJ - 0.1)
+            pop(img, C('JUST LAXATIVES', 64, bg=WHITE), CX + 160, 1900, t, tJ - 0.02)
+
+# ====================================================================== 9: by 1850, craze over, back to dinner table
+class Dinner(Base):
+    z0, z1 = 1.16, 1.24
+    def tcut(self):
+        return self.we('ketchup') - 0.1
+    def make_shakes(self):
+        return [(self.we('1850,'), 16, 0.3), (self.we('over,'), 14, 0.3)]
+    def events(self):
+        return [(0.02, 'swipe', 0.5), (self.we('1850,'), 'thud', 0.8), (self.we('over,') - 0.03, 'buzzer', 0.6),
+                (self.tcut(), 'swipe', 0.5), (self.we('dinner') - 0.03, 'chime', 0.6)]
+    def plate(self):
+        self.wall = wall_plate('#BFC7CF', '#4A525A', 18, (CX, 1000, 1300), counter=(1700, '#5A4632'))
+        self.pb = pill_bottle_sprite(700)
+        self.bot = bottle_sprite(760)
+        self.food = plate_food_sprite(780)
+        self.st = stamp_sprite('1850', 170, color=BLUE, angle=-8)
+        self.st2 = stamp_sprite('CRAZE OVER', 120, color=RED, angle=-6)
+        return table_plate(8)
+    def dyn(self, img, t):
+        tc, tO = self.tcut(), self.we('over,')
+        if t < tc:
+            img.paste(self.wall, (0, 0))
+            fall = ease_out((t - tO) / 0.5) if t > tO else 0
+            sp = self.pb.rotate(-80 * fall, resample=Image.BICUBIC, expand=True)
+            with_shadow(img, sp, CX + 40 * fall, 1180 + 300 * fall, a=0.45)
+            if t > tO:
+                red_x(img, CX + 40 * fall, 1180 + 300 * fall, 300, clamp01((t - tO) / 0.3))
+            stamp_in(img, self.st, CX + 280, 640, t, self.we('1850,'))
+            pop(img, C('BY ABOUT...', 70, bg=WHITE), CX - 200, 520, t, 0.02)
+            stamp_in(img, self.st2, CX, 1840, t, tO)
+            return
+        with_shadow(img, self.food, CX + 150, 1080, a=0.4)
+        with_shadow(img, self.bot, CX - 280, 900 + 6 * math.sin(t * 4), a=0.45)
+        pop(img, C('BACK ON THE TABLE', 72, bg=YEL), CX, 520, t, tc + 0.05)
+
+# ====================================================================== 10: fries -> loops to the hook
 class Outro(Hook):
     def make_shakes(self):
-        return [(self.we('nope,'), 18, 0.35)]
+        return [(self.we('fries...'), 12, 0.3)]
     def events(self):
-        return [(0.02, 'swipe', 0.5), (self.we('NASA'), 'riser', 0.5), (self.we('nope,'), 'buzzer', 0.8),
-                (self.we('truth') - 0.05, 'swipe', 0.5)]
+        return [(0.02, 'swipe', 0.5), (self.we('landed') - 0.03, 'splat', 0.6), (self.we('your') - 0.03, 'pop', 0.5),
+                (self.tswitch(), 'riser', 0.5)]
     def tswitch(self):
-        return self.we('truth') - 0.1
+        return self.we('fries...') + 0.45
     def plate(self):
         img = Hook.plate(self)
         self.hook_plate = img.copy()
-        self.rocket = rocket_sprite(1000)
-        self.st = stamp_sprite('NOPE!', 200, color=RED, angle=-8)
-        return space_plate_dark()
+        self.fries = fries_sprite(560)
+        self.kb = rot_sprite(bottle_sprite(720), 160)
+        return table_plate(3)
     def dyn(self, img, t):
         tw = self.tswitch()
         if t >= tw:
             img.paste(self.hook_plate, (0, 0))
-            self.hero(img, t - self.dur)   # ends right where frame 0 begins
+            self.hero(img, t - self.dur)   # ends exactly where frame 0 begins
             return
-        tN = self.we('nope,')
-        bob = 14 * math.sin(t * 4)
-        paste_center(img, self.rocket, CX, 1080 + bob)
-        glow(img, CX, 1600 + bob, 200, (255, 170, 60), 0.7 + 0.2 * math.sin(t * 20))
-        pop(img, C('MOST PEOPLE THINK...', 70, bg=WHITE), CX, 520, t, 0.05, out_t=self.we('NASA') - 0.3)
-        pop(img, C('NASA INVENTED IT?', 74, bg=YEL), CX, 520, t, self.we('NASA') - 0.05)
-        if t > tN:
-            red_x(img, CX, 1080, 380, clamp01((t - tN) / 0.3))
-        stamp_in(img, self.st, CX, 1820, t, tN)
+        with_shadow(img, self.fries, CX, 1180, a=0.45)
+        by = 430 + 20 * math.sin(t * 4)
+        paste_center(img, self.kb, CX + 40, by)
+        tL = self.we('landed')
+        if t > tL - 0.3:
+            q = clamp01((t - tL + 0.3) / 0.35)
+            ov = OV(img, CX - 120, by + 300, CX + 160, 1000)
+            y1 = by + 330 + (930 - by - 330) * q
+            ov.d.line(ov.pts([(CX + 30, by + 330), (CX + 20 + 10 * math.sin(t * 20), y1)]), fill=(196, 24, 18, 255), width=36)
+            ov.d.ellipse(ov.box(CX - 60, y1 - 34, CX + 100, y1 + 30), fill=(196, 24, 18, 255))
+            ov.commit()
+        pop(img, C('BEFORE YOUR FRIES...', 70, bg=WHITE), CX, 1860, t, 0.05)
     def cam(self, t):
         tw = self.tswitch()
         if t >= tw:
-            return self.z0, CX, 1180, 0.0
+            dx, dy, dr = self.shake(t)
+            return self.z0, CX, 1140, 0.0
         dx, dy, dr = self.shake(t)
         p = 1 - ease_out(t / 0.32)
-        return 1.14 + 0.06 * clamp01(t / tw) + 0.1 * p, CX + dx, 1150 + dy, 2.0 * p + dr
+        return 1.16 + 0.06 * clamp01(t / tw) + 0.1 * p, CX + dx, 1100 + dy, 2.0 * p + dr
 
-def space_plate_dark():
-    if 'spd' in _PL:
-        return _PL['spd'].copy()
-    arr = vgrad(PW, PH, [(0, '#0B1030'), (1, '#1E2A5A')])
-    img = to_img(arr).convert('RGBA')
-    ov = OV(img, 0, 0, PW, PH)
-    rng = np.random.default_rng(4)
-    for _ in range(220):
-        x, y = rng.uniform(0, PW), rng.uniform(0, PH)
-        r = rng.uniform(1.5, 4.5)
-        ov.d.ellipse((x - r, y - r, x + r, y + r), fill=(255, 255, 255, int(rng.uniform(120, 255))))
-    ov.d.ellipse((-400, 1900, PW + 400, PH + 1400), fill=(50, 120, 210, 255))
-    ov.d.ellipse((100, 1980, 700, 2300), fill=(70, 160, 90, 255))
-    ov.commit()
-    img = plate_img(to_arr(img))
-    _PL['spd'] = img
-    return img.copy()
-
-SCENES = [Hook, Alps, Burrs, Microscope, TinyHooks, CopyWeed, Nylon, Name, NobodyCared, Apollo, Outro]
+SCENES = [Hook, NoTomato, FishSauce, Sailors, Recipe, Scared, Doctor, Pills, Twist, Dinner, Outro]
