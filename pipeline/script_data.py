@@ -1,21 +1,21 @@
 def W(s, spoken=None):
     return (s, spoken if spoken is not None else s)
 
-HOOK_TEXT = "KETCHUP WAS\nMEDICINE?!"
+HOOK_TEXT = "SOLD FOR\nJUST $1?!"
 
 def ws(text):
     return [W(x) for x in text.split()]
 
 SENTENCES = [
-    ws("Ketchup was once sold as medicine... in pill form!"),
-    ws("And the first ketchup didn't even have tomatoes."),
-    ws("It started as a salty fish sauce from China and Southeast Asia, called") + [W("kê-tsiap.", "kay chap.")],
-    ws("Sailors carried it to Europe, where cooks made ketchup from anchovies, walnuts, and even oysters."),
-    [W("In"), W("1812,", "eighteen twelve,")] + ws("a Philadelphia scientist published one of the first tomato ketchup recipes."),
-    ws("But lots of Americans were still scared of tomatoes."),
-    [W("Then"), W("in"), W("the"), W("1830s,", "eighteen thirties,")] + ws("an Ohio doctor claimed tomatoes could treat diarrhea and indigestion."),
-    ws("Suddenly, sellers were packing tomato extract into pills."),
-    ws("The twist? Many pills had no tomato at all, and some were just laxatives."),
-    [W("By"), W("about"), W("1850,", "eighteen fifty,")] + ws("the craze was over, and ketchup went back to the dinner table."),
-    ws("So before it landed on your fries..."),
+    ws("This cookie recipe was sold for just") + [W("$1!", "one dollar!")],
+    [W("In"), W("the"), W("1930s,", "nineteen thirties,")] + ws("Ruth Wakefield ran the Toll House Inn in Massachusetts."),
+    ws("One day, she grabbed a Nestlé chocolate bar and chopped it up... with an ice pick!"),
+    ws("She stirred the pea-sized chunks into her cookie dough, and the chocolate chip cookie was born."),
+    ws("The cookies got so popular that Nestlé made her a deal."),
+    ws("They would print her recipe right on their chocolate wrappers."),
+    ws("Her payment? Reportedly one dollar... and free chocolate for life!"),
+    ws("Soon, Nestlé was selling bars pre-scored for chopping, and then tiny chocolate morsels."),
+    ws("And her recipe is still printed on the bag today."),
+    ws("The twist? The famous story calls it a lucky accident, but historians say Ruth knew exactly what she was doing."),
+    ws("So the next time you bite into a chocolate chip cookie, remember..."),
 ]
