@@ -30,7 +30,7 @@ for line in open(f'{K}/lexicon-us-en.txt', encoding='utf-8'):
 
 MANUAL = {
     'anchovies': 'ˈænʧˌOviz', 'fries': 'fɹˈIz', 'recipes': 'ɹˈɛsəpˌiz', 'americans': 'əmˈɛɹəkᵊnz', 'laxatives': 'lˈæksəɾɪvz', 'walnuts': 'wˈɔlnˌʌts', 'kay': 'kˈA', 'chap': 'ʧˈɑp',
-    'betty': 'bˈɛɾi', 'mestral': 'mɛstɹˈɑl', 'burrs': 'bˈɜɹz', 'cities': 'sˈɪɾiz', 'coated': 'kˈOtɪd', 'minutes': 'mˈɪnəts',
+    'betty': 'bˈɛɾi', 'blibber-blubber': 'blˈɪbəɹ blˈʌbəɹ', 'dubble': 'dˈʌbᵊl', 'salesmen': 'sˈAlzmən', 'diemer': 'dˈiməɹ', 'mestral': 'mɛstɹˈɑl', 'burrs': 'bˈɜɹz', 'cities': 'sˈɪɾiz', 'coated': 'kˈOtɪd', 'minutes': 'mˈɪnəts',
     'havilland': 'hˈævɪlənd', 'de': 'də', 'comets': 'kˈɑməts', 'the': 'ðə', 'a': 'ɐ', 'ullrich': 'ˈʊlɹɪk', 'palms': 'pˈɑmz',
     'swallowed': 'swˈɑlOd', 'raced': 'ɹˈAst', 'centuries': 'sˈɛnʧəɹiz', 'bodies': 'bˈɑdiz', 'to': 'tə',
     'forties': 'fˈɔɹtiz', 'raytheon': 'ɹˈAθiˌɑn', 'percy': 'pˈɜɹsi', 'gets': 'ɡˈɛts',

@@ -1,22 +1,21 @@
 def W(s, spoken=None):
     return (s, spoken if spoken is not None else s)
 
-HOOK_TEXT = "THIS TOY\nFAILED IN WWII?!"
+HOOK_TEXT = "INVENTED BY AN\nACCOUNTANT?!"
 
 def ws(text):
     return [W(x) for x in text.split()]
 
 SENTENCES = [
-    ws("This toy was a failed World War") + [W("II", "Two"), W("experiment!")],
-    ws("During the war, America needed a cheap rubber substitute."),
-    ws("At General Electric, engineer James Wright mixed boric acid with silicone oil."),
-    ws("The goo bounced even higher than rubber!"),
-    ws("But the government rejected it... nobody could find a use!"),
-    ws("Then a toy store sold it as a gift for adults, called Bouncing Putty."),
-    ws("The store's ad man, Peter Hodgson, had Yale students pack it into plastic eggs."),
-    ws("He renamed it Silly Putty, and sold each egg for one dollar."),
-    ws("It flopped at a toy fair."),
-    ws("Then The New Yorker mentioned it, and over") + [W("250,000", "two hundred fifty thousand")] + ws("orders poured in within three days!"),
-    [W("In"), W("1968,", "nineteen sixty eight,"), W("Apollo"), W("8", "eight")] + ws("astronauts even took it to space, to hold their tools down!"),
-    ws("Not bad for a blob nobody wanted, because remember..."),
+    ws("Bubble gum was invented by an accountant!"),
+    ws("And its pink color has an even weirder story."),
+    [W("In"), W("1928,", "nineteen twenty eight,")] + ws("Walter Diemer kept the books at a Philadelphia gum company."),
+    ws("Their first bubble gum, Blibber-Blubber, was so sticky it got shelved."),
+    ws("So the accountant started mixing his own recipes."),
+    ws("After a year, one batch worked... then hardened overnight!"),
+    ws("Four months later, he finally cracked it."),
+    ws("A candy store sold all") + [W("100", "one hundred")] + ws("pieces, a penny each, in one day!"),
+    ws("They called it Dubble Bubble, and he taught salesmen to blow bubbles!"),
+    ws("And the pink? It was the only food coloring in the factory!"),
+    ws("That's why bubble gum is still pink... thanks to an accountant."),
 ]
