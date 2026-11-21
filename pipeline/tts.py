@@ -29,6 +29,8 @@ for line in open(f'{K}/lexicon-us-en.txt', encoding='utf-8'):
         lex[p[0]] = ''.join(p[1:])
 
 MANUAL = {
+    "soldiers'": 'sˈOlʤəɹz',
+    'kleen': 'klˈin', 'borrowed': 'bˈɑɹOd', 'kotex': 'kˈOtˌɛks',
     'anchovies': 'ˈænʧˌOviz', 'fries': 'fɹˈIz', 'recipes': 'ɹˈɛsəpˌiz', 'americans': 'əmˈɛɹəkᵊnz', 'laxatives': 'lˈæksəɾɪvz', 'walnuts': 'wˈɔlnˌʌts', 'kay': 'kˈA', 'chap': 'ʧˈɑp',
     'betty': 'bˈɛɾi', 'blibber-blubber': 'blˈɪbəɹ blˈʌbəɹ', 'dubble': 'dˈʌbᵊl', 'salesmen': 'sˈAlzmən', 'diemer': 'dˈiməɹ', 'mestral': 'mɛstɹˈɑl', 'burrs': 'bˈɜɹz', 'cities': 'sˈɪɾiz', 'coated': 'kˈOtɪd', 'minutes': 'mˈɪnəts',
     'havilland': 'hˈævɪlənd', 'de': 'də', 'comets': 'kˈɑməts', 'the': 'ðə', 'a': 'ɐ', 'ullrich': 'ˈʊlɹɪk', 'palms': 'pˈɑmz',

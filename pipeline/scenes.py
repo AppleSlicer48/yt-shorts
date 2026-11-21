@@ -1,4 +1,4 @@
-"""Bubble gum was invented by an accountant (Walter Diemer, Fleer, 1928) (2026-11-20)."""
+"""Tissues weren't invented for your nose: Kleenex began as a cold cream remover (2026-11-21)."""
 import math
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
@@ -12,24 +12,29 @@ RED = (214, 50, 44)
 YEL = (255, 210, 60)
 GREEN = (60, 170, 90)
 WHITE = (255, 255, 255)
-PINK = (255, 120, 170)
-PINKH = '#FF7DB0'
 
 class Base(S):
-    focus = (CX, 1080)
-    z0, z1 = 1.22, 1.32
+    focus = (CX, 1060)
+    z0, z1 = 1.24, 1.34
+    def cam(self, t):
+        k = clamp01(t / max(self.dur, 0.01))
+        z = self.z0 + (self.z1 - self.z0) * ease_in_out(k)
+        p = 1 - ease_out(t / 0.3)
+        z *= 1 + 0.1 * p
+        dx, dy, dr = self.shake(t)
+        return z, self.focus[0] + dx, self.focus[1] + dy, 2.0 * p * self.rot_dir + dr
 
 # ====================================================================== helpers
-def with_shadow(img, sp, cx, cy, blur=14, a=0.45, dx=18, dy=26):
-    sh, pad = shadow_of(sp, blur, a)
-    paste_at(img, sh, cx - sp.width / 2 - pad + dx, cy - sp.height / 2 - pad + dy)
-    paste_at(img, sp, cx - sp.width / 2, cy - sp.height / 2)
-
 _SP = {}
 def cached(key, fn):
     if key not in _SP:
         _SP[key] = fn()
     return _SP[key]
+
+def with_shadow(img, sp, cx, cy, blur=14, a=0.45, dx=18, dy=26):
+    sh, pad = shadow_of(sp, blur, a)
+    paste_at(img, sh, cx - sp.width / 2 - pad + dx, cy - sp.height / 2 - pad + dy)
+    paste_at(img, sp, cx - sp.width / 2, cy - sp.height / 2)
 
 def rot(sp, ang, key=None):
     if key is not None:
@@ -41,39 +46,110 @@ def rot(sp, ang, key=None):
         _SP[k] = r
     return r
 
-def qmark(size=220, col=(255, 255, 255)):
+def qmark(size=200, col=WHITE):
     return cached(('q', size, col), lambda: text_img('?', size, fill=col, stroke=12, stroke_fill=(20, 20, 30), shadow_px=5))
 
-def bubble_sprite(R=440, col=PINKH, gray=False):
-    """Glossy pink gum bubble."""
-    def mk():
-        lay = Layer(int(R * 2.3), int(R * 2.3))
-        c = R * 1.15
-        sphere(lay, (c, c), R, '#9A9288' if gray else col, spec=0.15 if gray else 0.55, shin=40, amb=0.5)
-        sp, _, _ = layer_sprite(lay, 2)
-        d = ImageDraw.Draw(sp, 'RGBA')
-        cx, cy = sp.width / 2, sp.height / 2
-        if not gray:
-            # window highlight + rim light
-            d.ellipse((cx - R * 0.62, cy - R * 0.66, cx - R * 0.2, cy - R * 0.36), fill=(255, 255, 255, 170))
-            d.ellipse((cx - R * 0.2, cy - R * 0.7, cx - R * 0.08, cy - R * 0.58), fill=(255, 255, 255, 150))
-            d.arc((cx - R * 0.9, cy - R * 0.9, cx + R * 0.9, cy + R * 0.9), 20, 80, fill=(255, 210, 230, 160), width=max(4, R // 25))
-        else:
-            rng = np.random.default_rng(5)
-            for _ in range(9):
-                a0 = rng.uniform(0, 6.28)
-                x0, y0 = cx + math.cos(a0) * R * 0.3, cy + math.sin(a0) * R * 0.3
-                pts = [(x0, y0)]
-                for k in range(4):
-                    a0 += rng.uniform(-0.6, 0.6)
-                    x0 += math.cos(a0) * R * 0.16; y0 += math.sin(a0) * R * 0.16
-                    pts.append((x0, y0))
-                d.line(pts, fill=(60, 55, 50, 230), width=max(3, R // 40))
-        return sp
-    return cached(('bub', R, col, gray), mk)
+def big_text(txt, size, col=WHITE):
+    return cached(('bt', txt, size, col), lambda: text_img(txt, size, fill=col, stroke=max(8, size // 12), stroke_fill=(20, 20, 30), shadow_px=6))
 
-def head_sprite(Hh=560, profile=True):
-    """Wooden mannequin head + neck + shoulders, facing right; pencil behind the ear."""
+def box_sprite(w=760):
+    """Generic tissue box (3/4 view), opening on top, no branding."""
+    def mk():
+        h = int(w * 0.5); dep = int(w * 0.28); sk = int(w * 0.16)
+        W_, H_ = w + sk + 20, h + dep + 20
+        lay = Layer(W_, H_)
+        x0, y0 = 10, 10 + dep
+        top = [(x0 + sk, 10), (x0 + sk + w, 10), (x0 + w, y0), (x0, y0)]
+        fill_poly(lay, top, '#7EC3F0')
+        fill_poly(lay, [(x0 + w, y0), (x0 + sk + w, 10), (x0 + sk + w, 10 + h), (x0 + w, y0 + h)], '#2F6FB0')
+        fill_poly(lay, [(x0, y0), (x0 + w, y0), (x0 + w, y0 + h), (x0, y0 + h)], '#4A93D6')
+        sp = Image.fromarray((np.concatenate([np.clip(np.where(lay.a[..., None] > 1e-4, lay.p / np.maximum(lay.a[..., None], 1e-4), 0), 0, 1), lay.a[..., None]], -1) * 255 + 0.5).astype(np.uint8), 'RGBA')
+        d = ImageDraw.Draw(sp, 'RGBA')
+        for k in range(4):
+            yy = y0 + h * (0.22 + 0.2 * k)
+            pts = [(x0 + 8 + i * 8, yy + 14 * math.sin(i * 0.35 + k)) for i in range(int((w - 16) / 8) + 1)]
+            d.line(pts, fill=(255, 255, 255, 110), width=10)
+        cx, cy = x0 + sk / 2 + w / 2, 10 + dep / 2
+        d.ellipse((cx - w * 0.3, cy - dep * 0.22, cx + w * 0.3, cy + dep * 0.22), fill=(25, 50, 90, 255))
+        d.line([(x0, y0), (x0 + w, y0)], fill=(255, 255, 255, 120), width=4)
+        return sp, (cx, cy)
+    return cached(('box', w), mk)
+
+def draw_tissue_up(img, cx, cy, hgt, t, w=300):
+    """Puffy tissue poking up out of the box opening, fluttering."""
+    if hgt < 5:
+        return
+    ov = OV(img, cx - w - 40, cy - hgt - 80, cx + w + 40, cy + 40)
+    pts = []
+    n = 24
+    for i in range(n + 1):
+        u = i / n
+        x = cx - w / 2 + u * w
+        y = cy - hgt * (0.35 + 0.65 * math.sin(math.pi * u)) + 16 * math.sin(t * 7 + u * 6)
+        pts.append((x + 20 * math.sin(t * 5 + u * 3) * u, y))
+    pts += [(cx + w * 0.32, cy + 10), (cx - w * 0.32, cy + 10)]
+    ov.d.polygon(ov.pts(pts), fill=(250, 250, 252, 255), outline=(180, 186, 200, 255))
+    for k in range(3):
+        u = 0.3 + 0.2 * k
+        x = cx - w / 2 + u * w
+        ov.d.line(ov.pts([(x, cy), (x + 10 * math.sin(t * 6 + k), cy - hgt * 0.75)]), fill=(205, 210, 222, 255), width=7)
+    ov.commit()
+
+def sheet_sprite(w=520, seed=0, angle=0):
+    """Crinkly crepe tissue sheet."""
+    def mk():
+        im = Image.new('RGBA', (w + 40, w + 40), (0, 0, 0, 0))
+        d = ImageDraw.Draw(im)
+        rng = np.random.default_rng(seed)
+        pts = []
+        for k in range(40):
+            a = 2 * math.pi * k / 40
+            r = w * 0.47 * (1 + 0.04 * rng.standard_normal())
+            sq = 1 / max(abs(math.cos(a)), abs(math.sin(a))) ** 0.8
+            pts.append((w / 2 + 20 + math.cos(a) * r * min(sq, 1.35) * 0.78, w / 2 + 20 + math.sin(a) * r * min(sq, 1.35) * 0.78))
+        d.polygon(pts, fill=(250, 250, 248, 255), outline=(170, 176, 190, 255))
+        for k in range(12):
+            y = w * 0.16 + k * (w * 0.68) / 12
+            xs = np.linspace(w * 0.18, w * 0.86, 30)
+            d.line([(x, y + 5 * math.sin(x * 0.12 + k)) for x in xs], fill=(205, 208, 218, 255), width=4)
+        return im.rotate(angle, resample=Image.BICUBIC, expand=True)
+    return cached(('sheet', w, seed, angle), mk)
+
+def gasmask_sprite(w=620):
+    """Generic old-style gas mask with a round filter canister."""
+    def mk():
+        h = int(w * 1.25)
+        im = Image.new('RGBA', (w, h), (0, 0, 0, 0))
+        d = ImageDraw.Draw(im)
+        d.ellipse((w * 0.08, h * 0.02, w * 0.92, h * 0.72), fill=(88, 98, 72, 255), outline=(40, 46, 32, 255), width=10)
+        d.ellipse((w * 0.14, h * 0.06, w * 0.6, h * 0.42), fill=(108, 120, 88, 255))
+        for ex in (0.32, 0.68):
+            d.ellipse((w * (ex - 0.15), h * 0.18, w * (ex + 0.15), h * 0.42), fill=(60, 60, 60, 255))
+            d.ellipse((w * (ex - 0.12), h * 0.2, w * (ex + 0.12), h * 0.4), fill=(150, 200, 215, 255))
+            d.ellipse((w * (ex - 0.09), h * 0.22, w * (ex - 0.02), h * 0.28), fill=(240, 250, 255, 220))
+        d.rectangle((w * 0.42, h * 0.55, w * 0.58, h * 0.7), fill=(60, 66, 50, 255))
+        d.ellipse((w * 0.26, h * 0.64, w * 0.74, h * 0.99), fill=(140, 140, 132, 255), outline=(60, 60, 56, 255), width=10)
+        for r in (0.16, 0.1):
+            d.ellipse((w * (0.5 - r), h * (0.815 - r * 0.8), w * (0.5 + r), h * (0.815 + r * 0.8)), outline=(90, 90, 86, 255), width=8)
+        return im
+    return cached(('mask', w), mk)
+
+def jar_sprite(w=340):
+    def mk():
+        h = int(w * 0.9)
+        im = Image.new('RGBA', (w, h), (0, 0, 0, 0))
+        d = ImageDraw.Draw(im)
+        d.rounded_rectangle((w * 0.04, h * 0.28, w * 0.96, h * 0.98), radius=int(w * 0.12), fill=(240, 160, 190, 255), outline=(150, 70, 100, 255), width=7)
+        d.rectangle((w * 0.04, h * 0.5, w * 0.96, h * 0.62), fill=(255, 255, 255, 230))
+        d.ellipse((w * 0.04, h * 0.12, w * 0.96, h * 0.44), fill=(252, 250, 244, 255), outline=(200, 190, 180, 255), width=6)
+        d.ellipse((w * 0.3, h * 0.08, w * 0.7, h * 0.3), fill=(255, 255, 255, 255))
+        d.ellipse((w * 0.42, h * 0.02, w * 0.56, h * 0.16), fill=(255, 255, 255, 255))
+        d.line([(w * 0.18, h * 0.66), (w * 0.18, h * 0.9)], fill=(255, 220, 235, 200), width=12)
+        return im
+    return cached(('jar', w), mk)
+
+def head_sprite(Hh=600):
+    """Wooden mannequin head + neck + shoulders, facing right. Returns (sprite, nose-tip offset)."""
     def mk():
         lay = Layer(int(Hh * 1.6), int(Hh * 1.6))
         col = hexc(ARM_LIGHT); j = col * 0.86
@@ -83,144 +159,101 @@ def head_sprite(Hh=560, profile=True):
         capsule(lay, (cx, cy + Hh * 0.2), (cx - Hh * 0.02, cy + Hh * 0.5), Hh * 0.11, Hh * 0.12, j, **kw)
         ellipsoid(lay, (cx, cy), Hh * 0.27, Hh * 0.32, 0.15, col, **kw)
         ellipsoid(lay, (cx + Hh * 0.16, cy + Hh * 0.12), Hh * 0.13, Hh * 0.15, 0.4, col, **kw)
+        ellipsoid(lay, (cx + Hh * 0.27, cy + Hh * 0.02), Hh * 0.06, Hh * 0.045, 0.5, col, **kw)  # nose
         ellipsoid(lay, (cx - Hh * 0.04, cy + Hh * 0.02), Hh * 0.05, Hh * 0.08, 0, j, **kw)  # ear
-        sp, _, _ = layer_sprite(lay, 2)
-        d = ImageDraw.Draw(sp)
-        # pencil behind the ear
-        ox = sp.width / 2 - lay.w / 2 if False else 0
-        return sp
+        sp, x0, y0 = layer_sprite(lay, 2)
+        return sp, (cx + Hh * 0.31 - x0, cy + Hh * 0.02 - y0)
     return cached(('head', Hh), mk)
 
-def pencil_sprite(L=300):
+def envelope_sprite(w=240, seed=0):
     def mk():
-        im = Image.new('RGBA', (L + 10, 60), (0, 0, 0, 0))
+        h = int(w * 0.64)
+        im = Image.new('RGBA', (w + 8, h + 8), (0, 0, 0, 0))
         d = ImageDraw.Draw(im)
-        d.rectangle((30, 12, L - 60, 48), fill=(245, 190, 40, 255))
-        d.rectangle((30, 12, L - 60, 22), fill=(255, 215, 90, 255))
-        d.rectangle((0, 12, 34, 48), fill=(240, 130, 150, 255))
-        d.rectangle((28, 10, 44, 50), fill=(190, 190, 196, 255))
-        d.polygon([(L - 60, 12), (L, 30), (L - 60, 48)], fill=(235, 200, 160, 255))
-        d.polygon([(L - 20, 24), (L, 30), (L - 20, 36)], fill=(40, 40, 44, 255))
+        tint = [(250, 246, 232), (244, 240, 250), (255, 250, 240)][seed % 3]
+        d.rectangle((4, 4, w, h), fill=tint + (255,), outline=(120, 110, 100, 255), width=4)
+        d.line([(4, 4), (w / 2, h * 0.58), (w, 4)], fill=(150, 140, 125, 255), width=5)
+        d.rectangle((w * 0.76, h * 0.12, w * 0.92, h * 0.38), fill=(214, 70, 60, 255))
+        for k in range(3):
+            d.line([(w * 0.3, h * (0.66 + 0.1 * k)), (w * 0.7, h * (0.66 + 0.1 * k))], fill=(90, 90, 110, 255), width=4)
         return im
-    return cached(('pencil', L), mk)
+    return cached(('env', w, seed), mk)
 
-def ledger_sprite(w=960):
+def hanky_sprite(w=460):
+    """Cloth handkerchief with a checked border."""
     def mk():
-        h = int(w * 0.68)
+        im = Image.new('RGBA', (w, w), (0, 0, 0, 0))
+        d = ImageDraw.Draw(im)
+        d.rounded_rectangle((0, 0, w, w), radius=20, fill=(235, 240, 250, 255))
+        b = w * 0.12
+        for k in range(10):
+            col = (60, 110, 200, 255) if k % 2 == 0 else (235, 240, 250, 255)
+            x = k * w / 10
+            d.rectangle((x, 0, x + w / 10, b), fill=col)
+            d.rectangle((x, w - b, x + w / 10, w), fill=col)
+            d.rectangle((0, x, b, x + w / 10), fill=col)
+            d.rectangle((w - b, x, w, x + w / 10), fill=col)
+        d.rectangle((b * 1.6, b * 1.6, w - b * 1.6, w - b * 1.6), outline=(60, 110, 200, 255), width=6)
+        return im
+    return cached(('hanky', w), mk)
+
+def bin_sprite(w=380):
+    def mk():
+        h = int(w * 1.15)
+        im = Image.new('RGBA', (w + 40, h + 60), (0, 0, 0, 0))
+        d = ImageDraw.Draw(im)
+        d.polygon([(20, 60), (w + 20, 60), (w * 0.88 + 20, h + 40), (w * 0.12 + 20, h + 40)], fill=(111, 123, 136, 255))
+        d.polygon([(w * 0.62, 60), (w + 20, 60), (w * 0.88 + 20, h + 40), (w * 0.58, h + 40)], fill=(86, 97, 109, 255))
+        d.ellipse((0, 20, w + 40, 110), fill=(40, 44, 50, 255), outline=(150, 160, 170, 255), width=8)
+        for k in range(4):
+            x = (w + 40) * (0.25 + 0.17 * k)
+            d.line([(x, 130), (x - 6 + k * 4, h + 10)], fill=(130, 140, 150, 255), width=6)
+        return im
+    return cached(('bin', w), mk)
+
+def factory_sprite(w=760):
+    def mk():
+        h = int(w * 0.8)
         im = Image.new('RGBA', (w, h), (0, 0, 0, 0))
         d = ImageDraw.Draw(im)
-        d.rounded_rectangle((0, 10, w, h), radius=20, fill=(40, 70, 50, 255))
-        d.rectangle((24, 0, w / 2 - 6, h - 22), fill=(248, 244, 228, 255))
-        d.rectangle((w / 2 + 6, 0, w - 24, h - 22), fill=(248, 244, 228, 255))
-        d.line([(w / 2, 0), (w / 2, h - 22)], fill=(120, 110, 90, 255), width=6)
-        f = font(34, FONT_BOLD)
-        nums = ['$ 12.40', '$ 3.15', '$ 47.00', '$ 8.95', '$ 21.30', '$ 5.60', '$ 66.75', '$ 0.99']
+        d.rectangle((w * 0.68, h * 0.05, w * 0.8, h * 0.5), fill=(150, 80, 60, 255))
+        d.polygon([(0, h * 0.45), (w * 0.33, h * 0.25), (w * 0.33, h * 0.45), (w * 0.66, h * 0.25), (w * 0.66, h * 0.45), (w, h * 0.25), (w, h), (0, h)], fill=(190, 100, 70, 255))
+        d.rectangle((0, h * 0.45, w, h), fill=(180, 92, 64, 255))
+        for k in range(4):
+            d.rectangle((w * (0.08 + 0.23 * k), h * 0.58, w * (0.2 + 0.23 * k), h * 0.76), fill=(255, 225, 140, 255))
+        d.rectangle((w * 0.42, h * 0.8, w * 0.58, h), fill=(90, 50, 40, 255))
+        return im
+    return cached(('fac', w), mk)
+
+def bulb_sprite(R=120):
+    def mk():
+        im = Image.new('RGBA', (R * 3, R * 3), (0, 0, 0, 0))
+        d = ImageDraw.Draw(im)
+        c = R * 1.5
         for k in range(8):
-            y = 40 + k * (h - 90) / 8
-            for side in (0, 1):
-                x0 = 50 if side == 0 else w / 2 + 30
-                d.line([(x0, y + 44), (x0 + w / 2 - 90, y + 44)], fill=(150, 190, 210, 255), width=3)
-                d.text((x0 + w / 2 - 230, y), nums[(k + side * 3) % 8], font=f, fill=(40, 40, 60, 255))
-                d.line([(x0 + 10, y + 22), (x0 + 120 + (k * 31 % 60), y + 22)], fill=(110, 110, 130, 255), width=8)
-        d.line([(w * 0.72, 0), (w * 0.72, h - 22)], fill=(220, 120, 120, 255), width=3)
-        d.line([(w * 0.22, 0), (w * 0.22, h - 22)], fill=(220, 120, 120, 255), width=3)
+            a = k * math.pi / 4
+            d.line([(c + math.cos(a) * R * 1.15, c - R * 0.2 + math.sin(a) * R * 1.15), (c + math.cos(a) * R * 1.45, c - R * 0.2 + math.sin(a) * R * 1.45)], fill=(255, 230, 80, 255), width=12)
+        d.ellipse((c - R * 0.8, c - R, c + R * 0.8, c + R * 0.6), fill=(255, 225, 70, 255), outline=(40, 40, 40, 255), width=8)
+        d.rectangle((c - R * 0.35, c + R * 0.55, c + R * 0.35, c + R * 0.95), fill=(150, 150, 160, 255), outline=(40, 40, 40, 255), width=6)
         return im
-    return cached(('ledger', w), mk)
+    return cached(('bulb', R), mk)
 
-def goo_sprite(R=260, seed=1, col=(236, 200, 170), gloss=0.5):
-    """Lumpy glossy gum blob (dome-shaded)."""
+def star_sprite(R=60, col=(255, 230, 90)):
     def mk():
-        from scipy.ndimage import gaussian_filter
-        n = int(R * 2.4)
-        rng = np.random.default_rng(seed)
-        ph = rng.uniform(0, 6.28, 3)
+        im = Image.new('RGBA', (R * 2 + 4, R * 2 + 4), (0, 0, 0, 0))
+        d = ImageDraw.Draw(im)
         pts = []
-        for k in range(72):
-            a = 2 * math.pi * k / 72
-            r = R * (1 + 0.07 * math.sin(3 * a + ph[0]) + 0.05 * math.sin(5 * a + ph[1]))
-            pts.append((n / 2 + math.cos(a) * r, n / 2 + math.sin(a) * r * 0.75))
-        ss = 3
-        m = Image.new('L', (n * ss, n * ss), 0)
-        ImageDraw.Draw(m).polygon([(x * ss, y * ss) for x, y in pts], fill=255)
-        a = np.asarray(m.resize((n, n), Image.BOX), np.float32) / 255
-        hgt = gaussian_filter(a, R * 0.3)
-        hgt = np.clip(hgt / max(1e-3, hgt.max()), 0, 1) * a
-        gy, gx = np.gradient(hgt * R * 1.0)
-        nn = np.sqrt(gx * gx + gy * gy + 1)
-        nx, ny, nz = -gx / nn, -gy / nn, 1 / nn
-        ndl = np.clip(nx * LIGHT[0] + ny * LIGHT[1] + nz * LIGHT[2], 0, 1)
-        ndh = np.clip(nx * HALF[0] + ny * HALF[1] + nz * HALF[2], 0, 1)
-        base = np.array(col, np.float32) / 255
-        rgb = base[None, None, :] * (0.42 + 0.72 * ndl)[..., None] + (ndh ** 30 * gloss)[..., None]
-        return Image.fromarray((np.concatenate([np.clip(rgb, 0, 1), a[..., None]], -1) * 255 + 0.5).astype(np.uint8), 'RGBA')
-    return cached(('goo', R, seed, col, gloss), mk)
-
-def bowl_sprite(w=620, col=(255, 140, 185)):
-    def mk():
-        h = int(w * 0.62)
-        lay = Layer(w + 40, h + 40)
-        fill_poly(lay, [(20, 80), (w + 20, 80), (w * 0.8 + 20, h + 10), (w * 0.2 + 20, h + 10)], '#5FA8D8')
-        fill_poly(lay, [(w * 0.62, 80), (w + 20, 80), (w * 0.8 + 20, h + 10), (w * 0.6, h + 10)], '#3F84B8')
-        sp, _, _ = layer_sprite(lay, 2)
-        d = ImageDraw.Draw(sp)
-        d.ellipse((2, 20, sp.width - 2, 150), fill=(70, 130, 190, 255))
-        d.ellipse((30, 34, sp.width - 30, 136), fill=col + (255,))
-        return sp
-    return cached(('bowl', w, col), mk)
-
-def wrapped_piece(w=96, col=(255, 130, 175)):
-    def mk():
-        h = int(w * 0.55)
-        im = Image.new('RGBA', (int(w * 1.7), h + 10), (0, 0, 0, 0))
-        d = ImageDraw.Draw(im)
-        x0 = int(w * 0.35)
-        d.polygon([(0, 5), (x0, h * 0.35 + 5), (x0, h * 0.65 + 5), (0, h + 5)], fill=(250, 240, 210, 255))
-        d.polygon([(im.width, 5), (im.width - x0, h * 0.35 + 5), (im.width - x0, h * 0.65 + 5), (im.width, h + 5)], fill=(250, 240, 210, 255))
-        d.rounded_rectangle((x0 - 4, 5, im.width - x0 + 4, h + 5), radius=10, fill=col + (255,), outline=(180, 60, 100, 255), width=3)
-        d.line([(x0 + 8, 12), (im.width - x0 - 8, 12)], fill=(255, 220, 235, 255), width=5)
+        for k in range(10):
+            a = -math.pi / 2 + k * math.pi / 5
+            r = R if k % 2 == 0 else R * 0.42
+            pts.append((R + 2 + math.cos(a) * r, R + 2 + math.sin(a) * r))
+        d.polygon(pts, fill=col + (255,), outline=(60, 40, 10, 255))
         return im
-    return cached(('wrap', w, col), mk)
-
-def calendar_sprite(n, w=420):
-    def mk():
-        h = int(w * 1.05)
-        im = Image.new('RGBA', (w, h), (0, 0, 0, 0))
-        d = ImageDraw.Draw(im)
-        d.rounded_rectangle((0, 0, w, h), radius=26, fill=(250, 250, 246, 255), outline=(60, 60, 66, 255), width=6)
-        d.rounded_rectangle((0, 0, w, h * 0.28), radius=26, fill=(214, 50, 44, 255))
-        d.rectangle((0, h * 0.16, w, h * 0.28), fill=(214, 50, 44, 255))
-        f = font(int(w * 0.12))
-        t = 'MONTH'
-        d.text(((w - f.getlength(t)) / 2, h * 0.06), t, font=f, fill=(255, 255, 255))
-        f2 = font(int(w * 0.5))
-        t2 = str(n)
-        bb = f2.getbbox(t2)
-        d.text(((w - (bb[2] - bb[0])) / 2 - bb[0], h * 0.62 - (bb[3] + bb[1]) / 2), t2, font=f2, fill=(30, 30, 36))
-        for k in (0.25, 0.75):
-            d.ellipse((w * k - 18, -14, w * k + 18, 22), fill=(80, 80, 86, 255))
-        return im
-    return cached(('cal', n, w), mk)
-
-def bottle_sprite(col, full=True, w=200):
-    def mk():
-        h = int(w * 1.9)
-        im = Image.new('RGBA', (w, h), (0, 0, 0, 0))
-        d = ImageDraw.Draw(im)
-        body = (w * 0.08, h * 0.3, w * 0.92, h * 0.98)
-        d.rounded_rectangle(body, radius=int(w * 0.14), fill=(220, 235, 245, 110), outline=(240, 250, 255, 255), width=7)
-        if full:
-            d.rounded_rectangle((w * 0.12, h * 0.42, w * 0.88, h * 0.95), radius=int(w * 0.12), fill=col + (255,))
-            d.line([(w * 0.22, h * 0.46), (w * 0.22, h * 0.86)], fill=(255, 255, 255, 140), width=10)
-        d.rectangle((w * 0.34, h * 0.16, w * 0.66, h * 0.31), fill=(240, 250, 255, 200))
-        d.rounded_rectangle((w * 0.28, 0, w * 0.72, h * 0.18), radius=14, fill=(40, 40, 46, 255))
-        d.rectangle((w * 0.2, h * 0.58, w * 0.8, h * 0.74), fill=(250, 246, 230, 255))
-        d.ellipse((w * 0.4, h * 0.6, w * 0.6, h * 0.72), fill=col + (255,))
-        return im
-    return cached(('bottle', col, full, w), mk)
+    return cached(('star', R, col), mk)
 
 # ====================================================================== plates
 _PL = {}
-def wall_plate(c0='#F2B266', c1='#B5562C', seed=3, spot=(CX, 900, 1300), counter=None):
+def wall_plate(c0, c1, seed=3, spot=(CX, 950, 1300), counter=None):
     key = (c0, c1, seed, spot, counter)
     if key in _PL:
         return _PL[key].copy()
@@ -236,429 +269,337 @@ def wall_plate(c0='#F2B266', c1='#B5562C', seed=3, spot=(CX, 900, 1300), counter
     _PL[key] = img
     return img.copy()
 
-def table_plate(seed=5):
-    key = ('table', seed)
-    if key not in _PL:
-        _PL[key] = plate_img(table_bg(seed))
-    return _PL[key].copy()
-
 def hook_plate():
-    return wall_plate('#7FD6E8', '#2A5FA0', 31, (CX, 950, 1250))
+    return wall_plate('#BFE6FF', '#2A6FB0', 31, (CX, 1000, 1250), counter=(1420, '#B08055'))
 
-def night_plate():
-    key = 'night'
-    if key not in _PL:
-        arr = vgrad(PW, PH, [(0, '#16224A'), (1, '#060914')])
-        arr = arr * (0.8 + 0.35 * radial(PW, PH, CX, 1100, 1200, 1.2))[..., None]
-        img = to_img(arr).convert('RGBA')
-        d = ImageDraw.Draw(img)
-        rng = np.random.default_rng(3)
-        for _ in range(140):
-            x, y = rng.uniform(0, PW), rng.uniform(0, 1300)
-            r = rng.choice([2, 2, 3, 4])
-            d.ellipse((x - r, y - r, x + r, y + r), fill=(255, 255, 230, 255))
-        d.ellipse((PW - 430, 330, PW - 190, 570), fill=(250, 244, 210, 255))
-        d.ellipse((PW - 360, 300, PW - 140, 520), fill=(22, 32, 70, 255))
-        _PL[key] = img
-    return _PL[key].copy()
-
-# ====================================================================== 0: hook - head blowing a giant pink bubble
+# ====================================================================== 0: hook - giant tissue box, hand pulling a tissue
 class Hook(Base):
     z0, z1 = 1.3, 1.36
-    BX, BY = CX + 185, 1040
-    def bub_r(self, t):
-        # inflating from frame 0 (already big), wobbling
-        return 360 + 40 * ease_out(clamp01(t / 2.2)) + 8 * math.sin(t * 9)
+    focus = (CX, 1080)
+    BX, BY = CX + 10, 1230
     def make_shakes(self):
-        return [(0.0, 10, 0.25), (self.we('an') - 0.02, 18, 0.35)]
+        return [(0.0, 10, 0.25), (self.we('nose!') - 0.02, 18, 0.35)]
     def events(self):
-        return [(0.0, 'bigpop', 0.6), (0.05, 'squeak', 0.45), (self.we('invented') - 0.03, 'pop', 0.45),
-                (self.we('an') - 0.03, 'boom', 0.6)]
+        return [(0.0, 'swipe', 0.5), (0.04, 'rustle', 0.6), (self.we('invented') - 0.03, 'pop', 0.45),
+                (self.we('nose!') - 0.03, 'buzzer', 0.5)]
     def plate(self):
-        self.head = head_sprite(620)
-        self.bub = bubble_sprite(440)
-        self.pen = rot(pencil_sprite(300), 25)
-        self.st = stamp_sprite('AN ACCOUNTANT!', 96, color=RED, angle=-7)
+        self.box, self.op = box_sprite(760)
+        self.hand = get_hand(520, -1.75)
+        self.st = stamp_sprite('NOT FOR NOSES!', 104, color=RED, angle=-7)
         return hook_plate()
     def hero(self, img, t):
-        hx, hy = CX - 150, 1130
-        with_shadow(img, self.head, hx, hy, a=0.35, blur=18)
-        # pencil behind the ear
-        paste_center(img, self.pen, hx - 70, hy - 330)
-        r = self.bub_r(t)
-        s = r / 440
-        paste_center(img, self.bub, self.BX + (r - 385) * 0.6, self.BY, scale=s)
+        bx0, by0 = self.BX - self.box.width / 2, self.BY - self.box.height / 2
+        with_shadow(img, self.box, self.BX, self.BY, a=0.4, blur=18)
+        ox, oy = bx0 + self.op[0], by0 + self.op[1]
+        pull = 300 + 120 * (0.5 + 0.5 * math.sin(t * 3.2 - 1.4))
+        draw_tissue_up(img, ox, oy, pull, t, 340)
+        draw_hand(img, self.hand, (ox + 40, oy - pull + 30))
     def dyn(self, img, t):
         self.hero(img, t)
-        tA = self.we('an')
-        stamp_in(img, self.st, CX, 1760, t, tA - 0.02)
-    def cam(self, t):
-        k = clamp01(t / max(self.dur, 0.01))
-        z = self.z0 + (self.z1 - self.z0) * ease_in_out(k)
-        dx, dy, dr = self.shake(t)
-        return z, CX + dx, 1070 + dy, dr
+        tN = self.we('nose!')
+        stamp_in(img, self.st, CX, 1680, t, tN - 0.02)
+        if t > tN - 0.05:
+            red_x(img, CX + 330, 820, 90, clamp01((t - tN + 0.05) / 0.25))
 
-# ====================================================================== 1: and the pink color has a weirder story
-class WhyPink(Base):
-    z0, z1 = 1.24, 1.36
-    def make_shakes(self):
-        return [(self.we('pink'), 14, 0.3), (self.we('weirder'), 12, 0.3)]
-    def events(self):
-        return [(0.02, 'swipe', 0.5), (self.we('pink') - 0.03, 'bloop', 0.6), (self.we('color') - 0.03, 'pop', 0.45),
-                (self.we('weirder') - 0.03, 'riser', 0.5)]
-    def plate(self):
-        self.bub = bubble_sprite(330)
-        return wall_plate('#FFD1E4', '#B23A78', 7, (CX, 1000, 1250))
-    def dyn(self, img, t):
-        glow(img, CX, 1000, 560, (255, 230, 240), 0.5)
-        s = 1 + 0.03 * math.sin(t * 6)
-        paste_center(img, self.bub, CX, 1000, scale=s)
-        tW = self.we('weirder')
-        for k in range(4):
-            a = t * 1.3 + k * math.pi / 2
-            x = CX + math.cos(a) * 460
-            y = 1000 + math.sin(a) * 380
-            pop(img, qmark(150 if k % 2 else 190, YEL if k % 2 else WHITE), x, y, t, tW - 0.06 + k * 0.08)
-        pop(img, C('WHY PINK?', 110, bg=YEL), CX, 520, t, self.we('pink') - 0.06)
-        pop(img, C('EVEN WEIRDER...', 84, bg=WHITE), CX, 1760, t, tW - 0.06)
-
-# ====================================================================== 2: 1928, Walter Diemer kept the books
-class Books(Base):
-    z0, z1 = 1.22, 1.34
-    def make_shakes(self):
-        return [(self.we('1928'), 12, 0.25), (self.we('books'), 14, 0.3), (self.we('Philadelphia'), 10, 0.25)]
-    def events(self):
-        return [(0.02, 'swipe', 0.5), (self.we('1928') - 0.03, 'thud', 0.7), (self.we('Walter') - 0.03, 'pop', 0.5),
-                (self.we('books') - 0.03, 'scratch', 0.6), (self.we('Philadelphia') - 0.03, 'ding', 0.5)]
-    def plate(self):
-        self.book = ledger_sprite(1000)
-        self.hand = get_hand(520, -2.3)
-        self.pen = rot(pencil_sprite(360), 125)
-        self.st = stamp_sprite('ACCOUNTANT', 130, color=(40, 120, 70), angle=-8)
-        return table_plate(4)
-    def dyn(self, img, t):
-        with_shadow(img, rot(self.book, 3, 'book'), CX, 1080, a=0.5)
-        # hand writing with a pencil, moving along the line
-        u = t * 2.2
-        x = CX - 120 + 140 * math.sin(u)
-        y = 1040 + 70 * ((t * 0.6) % 1) + 8 * abs(math.sin(u * 3))
-        paste_center(img, self.pen, x + 80, y - 120)
-        draw_hand(img, self.hand, (x + 20, y - 40))
-        pop(img, C('1928', 100, bg=WHITE), CX - 300, 520, t, self.we('1928') - 0.06)
-        pop(img, C('WALTER DIEMER', 80, bg=YEL), CX + 120, 660, t, self.we('Walter') - 0.06)
-        stamp_in(img, self.st, CX, 1520, t, self.we('books') - 0.02)
-        pop(img, C('PHILADELPHIA GUM COMPANY', 58, bg=WHITE), CX, 1830, t, self.we('Philadelphia') - 0.06)
-
-# ====================================================================== 3: Blibber-Blubber was too sticky, shelved
-class Sticky(Base):
-    z0, z1 = 1.24, 1.34
+# ====================================================================== 1: company didn't figure it out, customers did
+class Customers(Base):
     def tcut(self):
-        return self.we('got') - 0.05
+        return self.we('Its') - 0.06
     def make_shakes(self):
-        return [(self.we('BlibberBlubber'), 12, 0.3), (self.we('sticky'), 16, 0.35), (self.tcut(), 14, 0.3)]
+        return [(self.we("didn't"), 12, 0.3), (self.tcut(), 12, 0.3), (self.we('customers'), 16, 0.35)]
     def events(self):
-        return [(0.02, 'swipe', 0.5), (self.we('BlibberBlubber') - 0.03, 'bloop', 0.6), (self.we('sticky') - 0.03, 'splat', 0.7),
-                (self.tcut(), 'thud', 0.8)]
+        return [(0.02, 'swipe', 0.5), (self.we("didn't") - 0.03, 'buzzer', 0.4), (self.tcut(), 'swipe', 0.4),
+                (self.we('customers') - 0.03, 'ding', 0.7)]
     def plate(self):
-        self.goo = goo_sprite(300, 3, (240, 150, 185), 0.6)
-        self.hand = get_hand(560, 1.45)
-        self.st = stamp_sprite('SHELVED!', 150, color=RED, angle=-9)
-        self.st2 = stamp_sprite('TOO STICKY', 120, color=(230, 120, 30), angle=6)
-        return wall_plate('#F7C9A0', '#A0522D', 12, (CX, 1000, 1250), counter=(1380, '#6A4A30'))
-    def dyn(self, img, t):
-        tc = self.tcut()
-        # stretchy strings between the gum lump and a lifting hand
-        lift = 0.5 + 0.5 * math.sin(t * 2.4 - 1.2)
-        hx, hy = CX + 60 + 30 * lift, 820 - 150 * lift
-        gx, gy = CX - 40, 1150
-        with_shadow(img, self.goo, gx, gy, a=0.4)
-        ov = OV(img, CX - 500, 500, CX + 500, 1350)
-        for k in range(-3, 4):
-            x0 = gx + k * 45
-            x1 = hx + k * 14
-            w = max(10, int(34 - 3 * lift * abs(k) - 8 * lift))
-            mid = ((x0 + x1) / 2 + 30 * math.sin(k + t * 3), (gy + hy) / 2 + 40)
-            ov.d.line(ov.pts([(x0, gy - 60), mid, (x1, hy + 10)]), fill=(240, 140, 180, 250), width=w, joint='curve')
-        ov.commit()
-        draw_hand(img, self.hand, (hx, hy), lift=0.3)
-        pop(img, C('BLIBBER-BLUBBER', 86, bg=YEL), CX, 520, t, self.we('BlibberBlubber') - 0.06)
-        if t < tc:
-            stamp_in(img, self.st2, CX, 1640, t, self.we('sticky') - 0.02)
-        else:
-            stamp_in(img, self.st, CX, 1640, t, tc)
-
-# ====================================================================== 4: so the accountant mixed his own recipes
-class Mixing(Base):
-    z0, z1 = 1.22, 1.32
-    def make_shakes(self):
-        return [(self.we('accountant'), 12, 0.25), (self.we('mixing'), 12, 0.3)]
-    def events(self):
-        return [(0.02, 'swipe', 0.5), (self.we('accountant') - 0.03, 'pop', 0.5), (self.we('mixing') - 0.03, 'rattle', 0.6),
-                (self.we('own') - 0.03, 'bloop', 0.5)]
-    def plate(self):
-        self.bowl = bowl_sprite(700, (250, 200, 210))
-        self.hand = get_hand(520, -2.0)
-        self.calc = None
-        return wall_plate('#BFE7D6', '#2F7A62', 9, (CX, 950, 1250), counter=(1330, '#C8A070'))
-    def dyn(self, img, t):
-        with_shadow(img, self.bowl, CX, 1180, a=0.45)
-        # swirl in the goo
-        a = t * 6
-        ov = OV(img, CX - 360, 940, CX + 360, 1120)
-        for k in range(3):
-            r = 90 + k * 70
-            ov.d.arc(ov.box(CX - r * 1.6, 1030 - r * 0.35, CX + r * 1.6, 1030 + r * 0.35),
-                     math.degrees(a + k) % 360, (math.degrees(a + k) + 130) % 360, fill=(255, 120, 170, 255), width=14)
-        ov.commit()
-        sx = CX + 160 * math.cos(a)
-        sy = 1020 + 30 * math.sin(a)
-        ov = OV(img, CX - 400, 500, CX + 450, 1100)
-        ov.d.line(ov.pts([(sx, sy), (sx + 110, sy - 420)]), fill=(205, 160, 110, 255), width=30)
-        ov.commit()
-        draw_hand(img, self.hand, (sx + 120, sy - 330))
-        # ingredient drops falling in
-        for k in range(3):
-            u = ((t * 1.4 + k / 3) % 1)
-            paste_center(img, goo_sprite(30, k, [(250, 250, 250), (255, 170, 200), (240, 220, 150)][k], 0.5),
-                         CX - 220 + k * 120, 600 + 420 * u * u)
-        pop(img, C('THE ACCOUNTANT', 80, bg=WHITE), CX, 520, t, self.we('accountant') - 0.06)
-        pop(img, C('HOMEMADE RECIPES', 84, bg=YEL), CX, 1740, t, self.we('own') - 0.06)
-
-# ====================================================================== 5: after a year one batch worked, then hardened overnight
-class Overnight(Base):
-    z0, z1 = 1.22, 1.32
-    def tcut(self):
-        return self.we('then') - 0.06
-    def make_shakes(self):
-        return [(self.we('year,'), 12, 0.25), (self.we('worked'), 12, 0.25), (self.tcut(), 14, 0.3), (self.we('hardened'), 18, 0.35)]
-    def events(self):
-        return [(0.02, 'swipe', 0.5), (self.we('year,') - 0.03, 'tick', 0.5), (self.we('batch') - 0.03, 'squeak', 0.5),
-                (self.we('worked') - 0.03, 'ding', 0.6), (self.tcut(), 'swipe', 0.5), (self.we('hardened') - 0.03, 'crack', 0.8)]
-    def plate(self):
-        self.goo = goo_sprite(270, 5, (255, 150, 190), 0.6)
-        self.bub = bubble_sprite(300)
-        self.gray = goo_sprite(270, 5, (150, 140, 135), 0.15)
-        self.st = stamp_sprite('HARDENED!', 180, color=RED, angle=-8)
-        self.night = night_plate()
-        return wall_plate('#FFE9A8', '#D08A2E', 4, (CX, 950, 1250), counter=(1320, '#8A6040'))
-    def dyn(self, img, t):
-        tc = self.tcut()
-        if t < tc:
-            tw = self.we('batch') - 0.1
-            k = ease_out(clamp01((t - tw) / 0.9)) if t > tw else 0
-            with_shadow(img, self.goo, CX, 1230, a=0.4)
-            if k > 0:
-                paste_center(img, self.bub, CX + 10, 1160 - 260 * k, scale=max(0.05, 0.35 + 0.65 * k))
-            pop(img, C('1 YEAR LATER', 90, bg=WHITE), CX, 520, t, self.we('year,') - 0.06)
-            pop(img, C('IT WORKED!', 90, bg=(120, 220, 140)), CX, 1760, t, self.we('worked') - 0.06)
-            return
-        img.paste(self.night, (0, 0))
-        u = t - tc
-        tH = self.we('hardened')
-        sp = self.goo if t < tH - 0.05 else self.gray
-        ov = OV(img, 0, 1320, PW, PH)
-        ov.d.rectangle(ov.box(0, 1320, PW, PH), fill=(40, 34, 30, 255))
-        ov.commit()
-        with_shadow(img, sp, CX, 1180 + 6 * math.sin(u * 30) * (1 if tH - 0.05 < t < tH + 0.3 else 0), a=0.5)
-        pop(img, C('OVERNIGHT...', 90, bg=(60, 80, 160), fg=WHITE), CX, 520, t, tc + 0.02)
-        stamp_in(img, self.st, CX, 1680, t, tH - 0.02)
-
-# ====================================================================== 6: four months later he cracked it
-class Cracked(Base):
-    z0, z1 = 1.22, 1.32
-    def tcut(self):
-        return self.we('finally') - 0.08
-    def make_shakes(self):
-        return [(self.tcut(), 12, 0.3), (self.we('cracked'), 18, 0.35)]
-    def events(self):
-        ev = [(0.02, 'swipe', 0.4)]
-        for k in range(4):
-            ev.append((0.05 + k * self.tcut() / 4, 'rustle', 0.5))
-        ev += [(self.tcut(), 'riser', 0.4), (self.we('cracked') - 0.03, 'bigpop', 0.7)]
-        return ev
-    def plate(self):
-        self.cals = [calendar_sprite(n, 520) for n in (1, 2, 3, 4)]
-        self.bub = bubble_sprite(420)
-        self.st = stamp_sprite('CRACKED IT!', 128, color=(40, 150, 70), angle=-8)
-        return wall_plate('#D9C9FF', '#5B3FA8', 21, (CX, 1000, 1250))
-    def dyn(self, img, t):
-        tc = self.tcut()
-        if t < tc:
-            n = min(3, int(t / (tc / 4)))
-            v = (t % (tc / 4)) / (tc / 4)
-            with_shadow(img, self.cals[n], CX, 1060, a=0.45)
-            if n < 3 and v > 0.6:
-                k = (v - 0.6) / 0.4
-                sp = rot(self.cals[n], 0)
-                paste_center(img, rot(self.cals[n], -25 * k, ('calf', n)), CX - 200 * k, 1060 - 500 * k, alpha=1 - k)
-            pop(img, C('4 MONTHS', 110, bg=YEL), CX, 1760, t, 0.15)
-            return
-        u = t - tc
-        k = ease_back(clamp01(u / 0.4), 1.6)
-        glow(img, CX, 1050, 600, (255, 230, 245), 0.6)
-        paste_center(img, self.bub, CX, 1050, scale=max(0.05, k) * (1 + 0.02 * math.sin(t * 8)))
-        stamp_in(img, self.st, CX, 1760, t, self.we('cracked') - 0.02)
-
-# ====================================================================== 7: candy store sold all 100 pieces, a penny each, in one day
-class Store(Base):
-    z0, z1 = 1.22, 1.32
-    def tsell(self):
-        return self.we('sold') - 0.05
-    def tend(self):
-        return self.we('in') - 0.05
-    def make_shakes(self):
-        return [(self.we('100'), 14, 0.3), (self.we('penny'), 12, 0.25), (self.we('one', ), 0, 0.01), (self.tend(), 18, 0.35)]
-    def events(self):
-        ev = [(0.02, 'swipe', 0.5), (self.we('candy') - 0.03, 'ding', 0.5), (self.we('100') - 0.03, 'pop', 0.6),
-              (self.we('penny') - 0.03, 'cash', 0.7)]
-        ts, te = self.tsell(), self.tend()
-        for k in range(8):
-            ev.append((ts + (te - ts) * (k + 0.5) / 8, 'tick', 0.3))
-        ev.append((te, 'cash', 0.9))
-        return ev
-    def plate(self):
-        self.p = wrapped_piece(60)
-        self.st = stamp_sprite('SOLD OUT IN 1 DAY!', 86, color=RED, angle=-6)
-        img = wall_plate('#FFD9A8', '#C0603A', 2, (CX, 1000, 1250), counter=(1360, '#7A4A2C'))
-        d = ImageDraw.Draw(img)
-        # striped awning
-        for k in range(9):
-            x = k * PW / 8
-            d.rectangle((x, 300, x + PW / 16, 420), fill=(214, 50, 44, 255))
-            d.rectangle((x + PW / 16, 300, x + PW / 8, 420), fill=(250, 245, 235, 255))
-        return img
-    def dyn(self, img, t):
-        ts, te = self.tsell(), self.tend()
-        left = 100 if t < ts else max(0, int(round(100 * (1 - clamp01((t - ts) / (te - ts))))))
-        # tray of 100 pieces: 10 x 10, pieces vanish in random order
-        ov = OV(img, CX - 560, 640, CX + 560, 1340)
-        ov.d.rounded_rectangle(ov.box(CX - 480, 660, CX + 480, 1320), radius=30, fill=(250, 240, 220, 255), outline=(150, 100, 60, 255), width=10)
-        ov.commit()
-        order = np.random.default_rng(7).permutation(100)
-        gone = set(order[:100 - left].tolist())
-        for k in range(100):
-            if k in gone:
-                continue
-            r, c = divmod(k, 10)
-            paste_center(img, self.p, CX - 414 + c * 92, 712 + r * 62)
-        # live counter
-        txt = f'{left} LEFT'
-        sp = cached(('cnt', txt), lambda: text_img(txt, 110, fill=WHITE, stroke=12, stroke_fill=(20, 20, 30), shadow_px=5))
-        if ts < t < te:
-            paste_center(img, sp, CX, 1520)
-        pop(img, C('CANDY STORE', 90, bg=WHITE), CX, 520, t, self.we('candy') - 0.06, out_t=self.we('100') - 0.12)
-        pop(img, C('100 PIECES', 90, bg=YEL), CX, 520, t, self.we('100') - 0.06, out_t=self.we('penny') - 0.12)
-        pop(img, C('1¢ EACH', 110, bg=WHITE), CX, 520, t, self.we('penny') - 0.06)
-        stamp_in(img, self.st, CX, 1740, t, te)
-
-# ====================================================================== 8: Dubble Bubble, taught salesmen to blow bubbles
-class Salesmen(Base):
-    z0, z1 = 1.22, 1.3
-    def tsale(self):
-        return self.we('taught') - 0.08
-    def make_shakes(self):
-        return [(self.we('Dubble'), 14, 0.3), (self.tsale(), 12, 0.25), (self.we('blow'), 14, 0.3)]
-    def events(self):
-        ev = [(0.02, 'swipe', 0.5), (self.we('Dubble') - 0.03, 'bigpop', 0.6), (self.tsale(), 'pop', 0.5)]
-        for k in range(3):
-            ev.append((self.we('blow') - 0.05 + k * 0.22, 'squeak', 0.4))
-        return ev
-    def plate(self):
+        self.fac = factory_sprite(900)
+        self.bulb = bulb_sprite(130)
         lay = Layer()
-        for k, x in enumerate((CX - 380, CX, CX + 380)):
-            mannequin(lay, x, 1900, 1050)
-        img = wall_plate('#FFE07A', '#D2782A', 6, (CX, 1000, 1300), counter=(1820, '#6A4A30'))
-        self.with_m = to_img(finish(to_arr(img), lay, (16, 24, 16, 0.4))).convert('RGBA')
-        self.bub = bubble_sprite(200)
-        self.big = bubble_sprite(420)
-        self.st = stamp_sprite('BUBBLE LESSONS', 92, color=RED, angle=-6)
-        return img
-    def dyn(self, img, t):
-        ts = self.tsale()
-        if t < ts:
-            glow(img, CX, 1030, 620, (255, 250, 220), 0.6)
-            paste_center(img, self.big, CX, 1030, scale=1 + 0.03 * math.sin(t * 7))
-            pop(img, C('DUBBLE BUBBLE', 110, bg=YEL), CX, 1700, t, self.we('Dubble') - 0.06)
-            return
-        img.paste(self.with_m, (0, 0))
-        tB = self.we('blow')
-        for k, x in enumerate((CX - 380, CX, CX + 380)):
-            t0 = tB - 0.25 + k * 0.22
-            g = ease_out(clamp01((t - t0) / 0.9)) if t > t0 else 0
-            if g > 0:
-                paste_center(img, self.bub, x, 920 + 60 - 60 * g + 10 * math.sin(t * 6 + k), scale=max(0.05, 0.2 + 0.8 * g))
-        pop(img, C('SALESMEN', 96, bg=WHITE), CX, 520, t, ts + 0.02)
-        stamp_in(img, self.st, CX, 1600, t, tB - 0.02)
-
-# ====================================================================== 9: the pink? only food coloring in the factory
-class OnlyPink(Base):
-    z0, z1 = 1.2, 1.3
-    def tcut(self):
-        return self.we('It') - 0.08
-    def make_shakes(self):
-        return [(self.we('pink?'), 12, 0.3), (self.we('only'), 16, 0.35), (self.we('factory!'), 12, 0.3)]
-    def events(self):
-        return [(0.02, 'riser', 0.4), (self.we('pink?') - 0.03, 'bloop', 0.6), (self.tcut(), 'swipe', 0.5),
-                (self.we('only') - 0.03, 'buzzer', 0.4), (self.we('coloring') - 0.03, 'ding', 0.7)]
-    def plate(self):
-        cols = [(214, 50, 44), (40, 110, 210), (60, 170, 90), (255, 120, 170)]
-        self.bt = [bottle_sprite(c, full=(k == 3), w=220) for k, c in enumerate(cols)]
-        self.bub = bubble_sprite(380)
-        self.st = stamp_sprite('ONLY PINK!', 140, color=(220, 60, 130), angle=-8)
-        return wall_plate('#E6E6EE', '#5A5A70', 15, (CX, 1000, 1250), counter=(1290, '#9A7050'))
+        for x in (CX - 360, CX, CX + 360):
+            mannequin(lay, x, 1960, 1120)
+        img = wall_plate('#FFE7B0', '#C77A30', 8, (CX, 1000, 1300), counter=(1880, '#6A4A30'))
+        self.crowd = to_img(finish(to_arr(img), lay, (16, 24, 16, 0.4))).convert('RGBA')
+        return wall_plate('#D8D4F2', '#4E4A8A', 5, (CX, 1000, 1300), counter=(1420, '#4A4060'))
     def dyn(self, img, t):
         tc = self.tcut()
         if t < tc:
-            paste_center(img, self.bub, CX, 1020, scale=1 + 0.03 * math.sin(t * 6))
-            paste_center(img, qmark(240, YEL), CX + 330, 700 + 10 * math.sin(t * 5))
+            with_shadow(img, self.fac, CX, 1080, a=0.4)
+            for k in range(3):
+                pop(img, qmark(150 + 40 * (k % 2), YEL if k % 2 else WHITE), CX - 280 + k * 280, 700 + 10 * math.sin(t * 6 + k), t, max(0.95, self.we('figure') - 0.06) + k * 0.1)
+            pop(img, C('THE COMPANY: CLUELESS', 70, bg=WHITE), CX, 1680, t, self.we("didn't") - 0.06)
             return
-        tO, tC = self.we('only'), self.we('coloring')
-        xs = [CX - 450, CX - 150, CX + 150, CX + 450]
-        for k, x in enumerate(xs):
-            sc = 1.0
-            if k == 3 and t > tC - 0.1:
-                glow(img, x, 1080, 300, (255, 150, 200), 0.9)
-                sc = 1 + 0.15 * (1 - clamp01((t - tC + 0.1) / 0.3))
-            with_shadow(img, self.bt[k], x, 1070, a=0.4) if sc == 1.0 else paste_center(img, self.bt[k], x, 1070, scale=sc)
-            if k < 3 and t > tO - 0.05 + k * 0.12:
-                red_x(img, x, 1100, 120, clamp01((t - tO + 0.05 - k * 0.12) / 0.2))
-        pop(img, C('FOOD COLORING', 84, bg=WHITE), CX, 520, t, tc + 0.02)
-        stamp_in(img, self.st, CX, 1650, t, tC - 0.02)
+        img.paste(self.crowd, (0, 0))
+        for k, x in enumerate((CX - 360, CX, CX + 360)):
+            pop(img, self.bulb, x, 760 + 8 * math.sin(t * 7 + k), t, self.we('customers') - 0.06 + k * 0.1)
+        pop(img, C('ITS CUSTOMERS DID!', 90, bg=YEL), CX, 1700, t, self.we('customers') - 0.06)
 
-# ====================================================================== 10: still pink thanks to an accountant -> loop to hook
+# ====================================================================== 2: WWI gas mask filter
+class GasMask(Base):
+    z0, z1 = 1.24, 1.4
+    def make_shakes(self):
+        return [(self.we('War'), 12, 0.3), (self.we('crinkly'), 12, 0.3), (self.we('filter'), 16, 0.35)]
+    def events(self):
+        return [(0.02, 'swipe', 0.5), (self.we('World') - 0.03, 'boom', 0.55), (self.we('crinkly') - 0.03, 'rustle', 0.7),
+                (self.we('filter') - 0.03, 'thud', 0.7), (self.we('masks!') - 0.03, 'pop', 0.4)]
+    def plate(self):
+        self.mask = gasmask_sprite(640)
+        self.sheet = sheet_sprite(420, 1, 8)
+        self.st = stamp_sprite('GAS MASK FILTER', 96, color=RED, angle=-6)
+        return wall_plate('#C9C9A6', '#4A4A34', 11, (CX, 1000, 1250))
+    def dyn(self, img, t):
+        tC, tF = self.we('crinkly'), self.we('filter')
+        mx, my = CX - 120, 1020
+        with_shadow(img, self.mask, mx, my, a=0.45)
+        if t > tC - 0.1:
+            k = ease_back(clamp01((t - tC + 0.1) / 0.5), 1.4)
+            sx = mx + 40 + 380 * k
+            sy = my + 280 - 160 * k + 10 * math.sin(t * 4)
+            paste_center(img, self.sheet, sx, sy, scale=max(0.05, 0.3 + 0.7 * k))
+            pop(img, C('CRINKLY PAPER', 64, bg=WHITE), min(sx, CX + 220), sy - 250, t, tC + 0.3)
+        pop(img, C('WORLD WAR I', 110, bg=YEL), CX, 520, t, self.we('World') - 0.06)
+        stamp_in(img, self.st, CX, 1700, t, tF - 0.02)
+
+# ====================================================================== 3: 1924 Kleenex, a cold cream remover
+class ColdCream(Base):
+    def t1(self):
+        return self.we('1924') - 0.08
+    def t2(self):
+        return self.we('cold') - 0.08
+    def t3(self):
+        return self.we('wiping') - 0.1
+    def make_shakes(self):
+        return [(self.t1(), 14, 0.3), (self.we('Kleenex'), 12, 0.3), (self.t2(), 12, 0.3), (self.t3(), 12, 0.3), (self.we('makeup.'), 14, 0.3)]
+    def events(self):
+        return [(0.02, 'swipe', 0.5), (self.t1(), 'thud', 0.7), (self.we('Kleenex') - 0.03, 'pop', 0.6),
+                (self.t2(), 'bloop', 0.6), (self.t3(), 'rustle', 0.6), (self.we('makeup.') - 0.03, 'ding', 0.6)]
+    def plate(self):
+        self.mask = gasmask_sprite(560)
+        self.box, self.op = box_sprite(700)
+        self.jar = jar_sprite(420)
+        self.head, self.nose = head_sprite(760)
+        self.hand = get_hand(480, -2.6)
+        self.sheet = sheet_sprite(260, 2, -20)
+        self.mr = stamp_sprite('MAKEUP REMOVER', 92, color=(200, 50, 120), angle=-6)
+        self.p1 = wall_plate('#C9C9A6', '#4A4A34', 11, (CX, 1000, 1250))
+        self.p2 = hook_plate()
+        self.p3 = wall_plate('#FFD6E4', '#B04A78', 7, (CX, 1000, 1250))
+        return self.p1
+    def dyn(self, img, t):
+        t1, t2, t3 = self.t1(), self.t2(), self.t3()
+        if t < t1:
+            k = ease_out(clamp01(t / max(0.1, t1)))
+            paste_center(img, rot(self.mask, 25 * k, 'mrot'), CX - 60, 1020 + 500 * k * k, alpha=1 - 0.6 * k)
+            pop(img, C('AFTER THE WAR...', 96, bg=WHITE), CX, 520, t, 0.1)
+            return
+        if t < t3:
+            img.paste(self.p2 if t < t2 else self.p3, (0, 0))
+            k = ease_back(clamp01((t - t1) / 0.35), 1.6)
+            if t < t2:
+                bx, sc = CX, max(0.05, k)
+                paste_center(img, self.box, bx, 1120, scale=sc)
+                bx0, by0 = bx - self.box.width / 2, 1120 - self.box.height / 2
+                if k > 0.95:
+                    draw_tissue_up(img, bx0 + self.op[0], by0 + self.op[1], 260, t, 300)
+                pop(img, C('1924', 130, bg=YEL), CX, 520, t, t1 + 0.02)
+                pop(img, C('KLEENEX', 110, bg=WHITE), CX, 1700, t, self.we('Kleenex') - 0.06)
+            else:
+                paste_center(img, self.box, CX - 230, 1120, scale=0.72)
+                pop(img, self.jar, CX + 300, 1060, t, t2)
+                pop(img, C('COLD CREAM REMOVER', 78, bg=WHITE), CX, 560, t, t2 + 0.02)
+            return
+        img.paste(self.p3, (0, 0))
+        hx, hy = CX - 140, 1080
+        with_shadow(img, self.head, hx, hy, a=0.35)
+        u = t - t3
+        nx = hx - self.head.width / 2 + self.nose[0]
+        ny = hy - self.head.height / 2 + self.nose[1]
+        cx = nx - 90 + 50 * math.sin(u * 9)
+        cy = ny + 90 + 25 * math.cos(u * 9)
+        paste_center(img, self.sheet, cx, cy)
+        draw_hand(img, self.hand, (cx + 40, cy + 40))
+        pop(img, C('WIPE OFF MAKEUP', 84, bg=WHITE), CX, 520, t, t3 + 0.02)
+        stamp_in(img, self.mr, CX, 1700, t, self.we('makeup.') - 0.02)
+
+# ====================================================================== 4: ads said movie stars used it
+class Stars(Base):
+    z0, z1 = 1.22, 1.32
+    def make_shakes(self):
+        return [(self.we('famous'), 12, 0.3), (self.we('stars'), 16, 0.35), (self.we('pretty'), 12, 0.3)]
+    def events(self):
+        return [(0.02, 'swipe', 0.5), (self.we('Ads') - 0.03, 'pop', 0.5), (self.we('movie') - 0.03, 'riser', 0.4),
+                (self.we('stars') - 0.03, 'chime', 0.7), (self.we('pretty') - 0.03, 'ding', 0.5)]
+    def plate(self):
+        self.head, _ = head_sprite(760)
+        self.box, _ = box_sprite(440)
+        self.st = star_sprite(70)
+        self.st2 = stamp_sprite('PRETTY SKIN', 110, color=(200, 50, 120), angle=-6)
+        return wall_plate('#3A2E5A', '#0C0A18', 9, (CX, 1000, 900))
+    def dyn(self, img, t):
+        glow(img, CX, 1000, 650, (255, 240, 200), 0.55)
+        with_shadow(img, self.head, CX - 80, 1060, a=0.3)
+        paste_center(img, rot(self.box, 8, 'sbox'), CX + 300, 1240 + 8 * math.sin(t * 4))
+        tS = self.we('stars')
+        for k in range(6):
+            a = t * 0.9 + k * math.pi / 3
+            pop(img, self.st, CX - 40 + math.cos(a) * 470, 1000 + math.sin(a) * 400, t, tS - 0.08 + k * 0.06)
+        pop(img, C('"AS USED BY MOVIE STARS"', 64, bg=YEL), CX, 520, t, self.we('Ads') - 0.06)
+        stamp_in(img, self.st2, CX, 1700, t, self.we('pretty') - 0.02)
+
+# ====================================================================== 5: the name: Kleen = clean, ex from Kotex
+class Name(Base):
+    def make_shakes(self):
+        return [(self.we('Kleen'), 14, 0.3), (self.we('clean,'), 10, 0.25), (self.we('ex'), 14, 0.3), (self.we('Kotex.'), 16, 0.35)]
+    def events(self):
+        return [(0.02, 'swipe', 0.5), (self.we('name?') - 0.03, 'pop', 0.4), (self.we('Kleen') - 0.03, 'thud', 0.7),
+                (self.we('clean,') - 0.03, 'ding', 0.5), (self.we('ex') - 0.03, 'bloop', 0.6), (self.we('Kotex.') - 0.03, 'boom', 0.5)]
+    def plate(self):
+        self.kl = big_text('KLEEN', 175, WHITE)
+        self.ex = big_text('EX', 175, YEL)
+        self.box, _ = box_sprite(720)
+        return wall_plate('#BFE6FF', '#2A5FA0', 17, (CX, 1000, 1250))
+    def dyn(self, img, t):
+        tK, tE, tX = self.we('Kleen'), self.we('ex'), self.we('Kotex.')
+        wk, we_ = self.kl.width, self.ex.width
+        tot = wk + we_ - 110
+        kx = CX - tot / 2 + wk / 2
+        exf = CX - tot / 2 + wk - 110 + we_ / 2
+        if t < tK - 0.05:
+            paste_center(img, self.box, CX, 1100)
+            pop(img, qmark(260, YEL), CX + 330, 760 + 12 * math.sin(t * 6), t, 0.0)
+            pop(img, C('THE NAME?', 110, bg=WHITE), CX, 520, t, self.we('name?') - 0.06)
+            return
+        pop(img, self.kl, kx, 1000, t, tK - 0.05)
+        pop(img, C('= CLEAN', 100, bg=WHITE), kx, 720, t, self.we('clean,') - 0.06)
+        if t > tE - 0.06:
+            k = ease_out(clamp01((t - tE + 0.06) / 0.4))
+            sx, sy = CX + 300, 1640
+            paste_center(img, self.ex, sx + (exf - sx) * k, sy + (1000 - sy) * k, scale=0.6 + 0.4 * k)
+            pop(img, C('"EX" FROM KOTEX', 92, bg=YEL), CX, 1700, t, tX - 0.06)
+
+# ====================================================================== 6: customers kept writing in
+class Letters(Base):
+    def make_shakes(self):
+        return [(self.we('writing'), 12, 0.3), (self.we('different'), 14, 0.3)]
+    def events(self):
+        ev = [(0.02, 'swipe', 0.5)]
+        tw = self.we('writing') - 0.1
+        for k in range(5):
+            ev.append((tw + k * 0.3, 'rustle' if k % 2 else 'pop', 0.4))
+        ev.append((self.we('different') - 0.03, 'riser', 0.5))
+        return ev
+    def plate(self):
+        self.envs = [rot(envelope_sprite(320, k), (k * 29) % 40 - 20) for k in range(8)]
+        self.box, _ = box_sprite(600)
+        return wall_plate('#FFE7B0', '#C77A30', 8, (CX, 1000, 1300), counter=(1420, '#8A5A38'))
+    def dyn(self, img, t):
+        with_shadow(img, self.box, CX, 1200, a=0.4)
+        tw = self.we('writing') - 0.1
+        for k in range(8):
+            t0 = tw + k * 0.22
+            if t < t0:
+                continue
+            u = ease_out(clamp01((t - t0) / 0.45))
+            ex, ey = CX - 420 + (k % 4) * 280, 760 + (k // 4) * 240
+            sx, sy = ex + (1 if k % 2 else -1) * 700, ey - 400
+            paste_center(img, self.envs[k], sx + (ex - sx) * u, sy + (ey - sy) * u)
+        pop(img, C('CUSTOMER LETTERS', 86, bg=WHITE), CX, 1720, t, self.we('customers') - 0.06)
+        pop(img, C('A DIFFERENT USE?!', 90, bg=YEL), CX, 480, t, self.we('different') - 0.06)
+
+# ====================================================================== 7: by 1930 the letters swamped the company
+class Swamped(Base):
+    z0, z1 = 1.22, 1.3
+    def make_shakes(self):
+        return [(self.we('1930'), 14, 0.3), (self.we('swamped'), 22, 0.45)]
+    def events(self):
+        ev = [(0.02, 'swipe', 0.5), (self.we('1930') - 0.03, 'thud', 0.7)]
+        ts = self.we('letters') - 0.05
+        for k in range(6):
+            ev.append((ts + k * 0.12, 'rustle', 0.4))
+        ev.append((self.we('swamped') - 0.03, 'boom', 0.7))
+        return ev
+    def plate(self):
+        self.fac = factory_sprite(860)
+        self.envs = [rot(envelope_sprite(230, k), (k * 37) % 70 - 35) for k in range(12)]
+        self.st = stamp_sprite('SWAMPED!', 170, color=RED, angle=-8)
+        rng = np.random.default_rng(9)
+        self.pos = [(rng.uniform(CX - 480, CX + 480), rng.uniform(760, 1500)) for _ in range(60)]
+        return wall_plate('#D8D4F2', '#4E4A8A', 5, (CX, 1000, 1300), counter=(1420, '#4A4060'))
+    def dyn(self, img, t):
+        with_shadow(img, self.fac, CX, 1100, a=0.4)
+        ts = self.we('letters') - 0.1
+        n = 0 if t < ts else min(60, int((t - ts) * 45) + 1)
+        for k in range(n):
+            x, y = self.pos[k]
+            u = ease_out(clamp01((t - ts - k / 45) / 0.25))
+            paste_center(img, self.envs[k % 12], x, y - 500 * (1 - u))
+        pop(img, C('1930', 130, bg=YEL), CX, 520, t, self.we('1930') - 0.06)
+        stamp_in(img, self.st, CX, 1720, t, self.we('swamped') - 0.02)
+
+# ====================================================================== 8: people were blowing their noses
+class Noses(Base):
+    z0, z1 = 1.28, 1.38
+    def make_shakes(self):
+        return [(self.we('blow') - 0.02, 24, 0.5)]
+    def events(self):
+        return [(0.02, 'swipe', 0.5), (self.we('blow') - 0.03, 'squeak', 0.7), (self.we('blow') + 0.12, 'bigpop', 0.5)]
+    def plate(self):
+        self.head, self.nose = head_sprite(800)
+        self.hand = get_hand(480, -2.9)
+        self.sheet = sheet_sprite(320, 3, 10)
+        self.st = stamp_sprite('BLOWING NOSES!', 104, color=RED, angle=-7)
+        self.honk = big_text('HONK!', 130, YEL)
+        return wall_plate('#C8F0D8', '#2F8A5A', 13, (CX, 1000, 1250))
+    def dyn(self, img, t):
+        hx, hy = CX - 180, 1080
+        tb = self.we('blow')
+        sh = 8 * math.sin(t * 40) if t > tb else 0
+        with_shadow(img, self.head, hx + sh, hy, a=0.35)
+        nx = hx - self.head.width / 2 + self.nose[0] + sh
+        ny = hy - self.head.height / 2 + self.nose[1]
+        paste_center(img, self.sheet, nx + 30, ny + 10, scale=1 + (0.08 * math.sin(t * 30) if t > tb else 0))
+        draw_hand(img, self.hand, (nx + 80, ny + 70))
+        pop(img, self.honk, CX + 170, 700, t, tb - 0.05)
+        stamp_in(img, self.st, CX, 1700, t, tb - 0.02)
+
+# ====================================================================== 9: handkerchief you can throw away -> loop
 class Outro(Hook):
     def tswitch(self):
-        return self.we('thanks') - 0.1
+        return self.we('even') - 0.1
     def make_shakes(self):
-        return [(self.we('still'), 12, 0.3), (self.tswitch(), 12, 0.3)]
+        return [(self.we('handkerchief'), 12, 0.3), (self.we('throw'), 16, 0.35), (self.tswitch(), 10, 0.3)]
     def events(self):
-        return [(0.02, 'swipe', 0.5), (self.we('still') - 0.03, 'bloop', 0.5), (self.tswitch(), 'riser', 0.4)]
+        return [(0.02, 'swipe', 0.5), (self.we('handkerchief') - 0.03, 'pop', 0.5), (self.we('throw') - 0.03, 'swipe', 0.6),
+                (self.we('away...') - 0.03, 'thud', 0.6), (self.tswitch(), 'riser', 0.4)]
     def plate(self):
-        img = Hook.plate(self)
-        self.hp = img.copy()
-        self.wr = [wrapped_piece(150, c) for c in ((255, 130, 175), (255, 160, 195), (240, 110, 160))]
-        return wall_plate('#FFD1E4', '#B23A78', 7, (CX, 1000, 1250))
+        Hook.plate(self)
+        self.hp = hook_plate()
+        self.hk = hanky_sprite(480)
+        self.bin = bin_sprite(420)
+        return wall_plate('#FFF1B8', '#C98A2A', 19, (CX, 1000, 1250), counter=(1420, '#8A6040'))
     def dyn(self, img, t):
         tw = self.tswitch()
         if t >= tw:
             img.paste(self.hp, (0, 0))
             self.hero(img, t - self.dur)
-            pop(img, C('THANKS TO AN ACCOUNTANT', 60, bg=YEL), CX, 1760, t, tw + 0.02)
             return
-        glow(img, CX, 1050, 640, (255, 235, 245), 0.5)
-        for k in range(9):
-            r, c = divmod(k, 3)
-            paste_center(img, rot(self.wr[k % 3], (k * 37) % 40 - 20, ('wr', k)), CX - 330 + c * 330, 780 + r * 270 + 10 * math.sin(t * 5 + k))
-        pop(img, C('STILL PINK TODAY', 90, bg=WHITE), CX, 520, t, self.we('still') - 0.06)
+        tT = self.we('throw') - 0.05
+        with_shadow(img, self.bin, CX + 260, 1230, a=0.4)
+        if t < tT:
+            paste_center(img, rot(self.hk, 8 * math.sin(t * 3), 'hk'), CX - 200, 1000)
+        else:
+            u = clamp01((t - tT) / 0.5)
+            x = CX - 200 + 460 * u
+            y = 1000 - 380 * math.sin(math.pi * u) + 120 * u
+            if u < 1:
+                paste_center(img, rot(self.hk, -200 * u, 'hk2'), x, y, scale=1 - 0.6 * u)
+        pop(img, C('THE HANDKERCHIEF', 90, bg=WHITE), CX, 520, t, self.we('handkerchief') - 0.06)
+        pop(img, C('YOU CAN THROW AWAY', 90, bg=YEL), CX, 1720, t, self.we('throw') - 0.06)
     def cam(self, t):
         tw = self.tswitch()
-        if t >= tw:
-            # converge on the exact framing of frame 0
-            k = clamp01((t - tw) / max(0.1, self.dur - tw))
-            dx, dy, dr = self.shake(t)
-            return self.z0 + 0.04 * (1 - k), CX + dx, 1070 + dy, dr
         dx, dy, dr = self.shake(t)
+        if t >= tw:
+            k = clamp01((t - tw) / max(0.1, self.dur - tw))
+            return self.z0 + 0.04 * (1 - k), self.focus[0] + dx, self.focus[1] + dy, dr
         p = 1 - ease_out(t / 0.32)
-        return 1.22 + 0.06 * clamp01(t / tw) + 0.1 * p, CX + dx, 1080 + dy, 2.0 * p + dr
+        return 1.24 + 0.06 * clamp01(t / tw) + 0.1 * p, CX + dx, 1060 + dy, 2.0 * p + dr
 
-SCENES = [Hook, WhyPink, Books, Sticky, Mixing, Overnight, Cracked, Store, Salesmen, OnlyPink, Outro]
+SCENES = [Hook, Customers, GasMask, ColdCream, Stars, Name, Letters, Swamped, Noses, Outro]

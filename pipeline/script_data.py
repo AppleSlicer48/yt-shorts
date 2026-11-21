@@ -1,21 +1,20 @@
 def W(s, spoken=None):
     return (s, spoken if spoken is not None else s)
 
-HOOK_TEXT = "INVENTED BY AN\nACCOUNTANT?!"
+HOOK_TEXT = "TISSUES WEREN'T\nFOR NOSES?!"
 
 def ws(text):
     return [W(x) for x in text.split()]
 
 SENTENCES = [
-    ws("Bubble gum was invented by an accountant!"),
-    ws("And its pink color has an even weirder story."),
-    [W("In"), W("1928,", "nineteen twenty eight,")] + ws("Walter Diemer kept the books at a Philadelphia gum company."),
-    ws("Their first bubble gum, Blibber-Blubber, was so sticky it got shelved."),
-    ws("So the accountant started mixing his own recipes."),
-    ws("After a year, one batch worked... then hardened overnight!"),
-    ws("Four months later, he finally cracked it."),
-    ws("A candy store sold all") + [W("100", "one hundred")] + ws("pieces, a penny each, in one day!"),
-    ws("They called it Dubble Bubble, and he taught salesmen to blow bubbles!"),
-    ws("And the pink? It was the only food coloring in the factory!"),
-    ws("That's why bubble gum is still pink... thanks to an accountant."),
+    ws("Tissues weren't invented for your nose!"),
+    ws("And the company didn't figure out the real use. Its customers did."),
+    ws("In World War One, this crinkly paper was made as a filter inside soldiers' gas masks!"),
+    ws("After the war, in") + [W("1924,", "nineteen twenty four,")] + ws("it came back as Kleenex... a cold cream remover for wiping off makeup."),
+    ws("Ads even said famous movie stars used it for pretty skin."),
+    ws("And the name? Kleen meant clean, and the ex was borrowed from Kotex."),
+    ws("But customers kept writing in, saying they used it for something totally different."),
+    ws("By") + [W("1930,", "nineteen thirty,")] + ws("the letters swamped the company."),
+    ws("People were using it to blow their noses!"),
+    ws("So it became the handkerchief you can throw away... even though"),
 ]
