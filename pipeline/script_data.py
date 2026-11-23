@@ -1,20 +1,21 @@
 def W(s, spoken=None):
     return (s, spoken if spoken is not None else s)
 
-HOOK_TEXT = "FIRST BAND-AID:\n18 INCHES?!"
+HOOK_TEXT = "DORITOS CAME\nFROM TRASH?!"
 
 def ws(text):
     return [W(x) for x in text.split()]
 
 SENTENCES = [
-    ws("One wife's kitchen accidents gave us the Band-Aid!"),
-    ws("And the first ones were so weird, almost nobody bought them."),
-    ws("In") + [W("1920,", "nineteen twenty,")] + ws("Earle Dickson's wife Josephine kept nicking her fingers while cooking."),
-    ws("Earle bought cotton for Johnson and Johnson, and he had an idea."),
-    ws("He stuck little gauze pads along sticky tape, so she could snip one off."),
-    ws("His bosses weren't impressed... until he showed it on himself."),
-    ws("But the first ones were handmade strips,") + [W("18", "eighteen")] + ws("inches long!"),
-    ws("The first year, they sold just") + [W("$3,000", "three thousand dollars")] + ws("worth."),
-    ws("So they gave free ones to Boy Scouts, and machines made them smaller."),
-    ws("Earle became vice president, and over") + [W("100", "a hundred")] + ws("billion have been made, all because..."),
+    ws("Doritos were born from Disneyland trash!"),
+    ws("And the first ones didn't even have cheese."),
+    ws("So how did trash turn into a billion-dollar chip?"),
+    ws("As the story goes, Disneyland had a Mexican restaurant called Casa de Fritos."),
+    ws("And the cooks kept throwing old tortillas in the trash."),
+    ws("Then a salesman from their tortilla supplier said: stop, cut them up and fry them!"),
+    ws("Guests loved them so much, the chips went on the menu."),
+    ws("A Frito-Lay boss named Arch West noticed, and by") + [W("1966,", "nineteen sixty six,")] + ws("they were sold nationwide."),
+    ws("But they were just plain toasted corn, until nacho cheese showed up in") + [W("1972.", "nineteen seventy two.")],
+    ws("Even the name means little golden things in Spanish."),
+    ws("Frito-Lay can't confirm the Disneyland part, but if it's true, your favorite chip started as..."),
 ]
