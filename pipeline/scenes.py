@@ -1,9 +1,8 @@
-"""Doritos were born from Disneyland trash: Casa de Fritos, stale tortillas, Arch West (2026-11-23).
-Generic stand-ins only: plain triangle chips, unbranded bags, no logos or packaging art."""
+"""Stanley cups were almost forgotten until a Utah shopping blog saved them (2026-11-24).
+Generic stand-ins only: plain unbranded tumblers and bottles, no logos or packaging art."""
 import math
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
-from scipy.ndimage import gaussian_filter as _gf
 from engine import *
 from base_scenes import ARM_LIGHT, CX, CY, plate_img, grain_map, finish
 from mw_scenes import glow, stamp_sprite, mannequin
@@ -14,6 +13,12 @@ RED = (214, 50, 44)
 YEL = (255, 210, 60)
 GREEN = (60, 170, 90)
 WHITE = (255, 255, 255)
+PINK = (244, 150, 186)
+SAGE = (160, 186, 150)
+CREAM = (238, 226, 200)
+LILAC = (186, 160, 226)
+BLUE = (120, 180, 230)
+CUP_COLS = [PINK, SAGE, CREAM, LILAC, BLUE, (250, 186, 120)]
 
 class Base(S):
     focus = (CX, 1060)
@@ -81,158 +86,150 @@ def ss_draw(w, h, ss=3):
 def ss_done(im, w, h):
     return im.resize((int(w), int(h)), Image.LANCZOS)
 
-# ---------------------------------------------------------------- chip (generic triangle tortilla chip)
-def chip_sprite(L=400, cheesy=True, seed=0):
-    def mk():
-        ss = 3
-        h = int(L * 0.9)
-        pad = int(L * 0.08)
-        Wd, Ht = L + 2 * pad, h + 2 * pad
-        pts = [((pad + L / 2) * ss, pad * ss), ((pad + L) * ss, (pad + h) * ss), (pad * ss, (pad + h) * ss)]
-        mask = Image.new('L', (Wd * ss, Ht * ss), 0)
-        md = ImageDraw.Draw(mask)
-        cx_, cy_ = sum(p[0] for p in pts) / 3, sum(p[1] for p in pts) / 3
-        inner = [(cx_ + (x - cx_) * 0.9, cy_ + (y - cy_) * 0.9) for x, y in pts]
-        md.polygon(inner, fill=255)
-        md.line(inner + [inner[0]], fill=255, width=int(L * 0.1 * ss), joint='curve')
-        for p in inner:
-            r = L * 0.05 * ss
-            md.ellipse((p[0] - r, p[1] - r, p[0] + r, p[1] + r), fill=255)
-        mask = mask.resize((Wd, Ht), Image.LANCZOS)
-        m = np.asarray(mask, np.float32) / 255
-        yy, xx = np.mgrid[0:Ht, 0:Wd].astype(np.float32)
-        g = np.clip(1.18 - 0.45 * (xx / Wd) - 0.3 * (yy / Ht), 0.5, 1.2)
-        rng = np.random.default_rng(seed)
-        n = smooth_noise(Ht, Wd, max(6, L // 18), seed + 7, 3)
-        if cheesy:
-            base = np.array([252, 142, 42], np.float32) / 255
-            spec = np.array([196, 66, 18], np.float32) / 255
-        else:
-            base = np.array([255, 208, 96], np.float32) / 255
-            spec = np.array([196, 140, 60], np.float32) / 255
-        col = base[None, None, :] * g[..., None] * (0.88 + 0.24 * n[..., None])
-        sp = np.zeros((Ht, Wd), np.float32)
-        for k in range(int(L * 0.12)):
-            x, y = rng.uniform(0, Wd), rng.uniform(0, Ht)
-            r = rng.uniform(1.5, max(2.0, L * 0.016))
-            x0, x1 = int(max(0, x - 3 * r)), int(min(Wd, x + 3 * r + 1))
-            y0, y1 = int(max(0, y - 3 * r)), int(min(Ht, y + 3 * r + 1))
-            if x1 > x0 and y1 > y0:
-                sp[y0:y1, x0:x1] += np.exp(-(((xx[y0:y1, x0:x1] - x) ** 2 + (yy[y0:y1, x0:x1] - y) ** 2) / (r * r)))
-        sp = np.clip(sp, 0, 1)
-        col = col * (1 - sp[..., None] * 0.6) + spec[None, None, :] * sp[..., None] * 0.6
-        edge = np.clip(1 - _gf(m, max(1.0, L * 0.02)), 0, 1) * m
-        col = col * (1 - 0.55 * edge[..., None])
-        arr = np.concatenate([np.clip(col, 0, 1), m[..., None]], -1)
-        return Image.fromarray((arr * 255).astype(np.uint8), 'RGBA')
-    return cached(('chip', L, cheesy, seed), mk)
+def shade_cyl(im, x0, x1, k_dark=0.55, k_hi=0.35):
+    """Horizontal cylinder shading over an RGBA sprite (columns x0..x1)."""
+    a = np.asarray(im, np.float32) / 255
+    w = a.shape[1]
+    xs = np.arange(w, dtype=np.float32)
+    u = np.clip((xs - x0) / max(1, x1 - x0), 0, 1)
+    shade = 1 - k_dark * (u ** 2.2) - 0.25 * ((1 - u) ** 6)
+    hi = k_hi * np.exp(-((u - 0.24) / 0.07) ** 2)
+    rgb = a[..., :3] * shade[None, :, None] + hi[None, :, None]
+    a[..., :3] = np.clip(rgb, 0, 1)
+    return Image.fromarray((a * 255).astype(np.uint8), 'RGBA')
 
-def trash_can(w=520):
+# ---------------------------------------------------------------- generic big tumbler (handle + lid + straw), no logo
+def cup_sprite(H=900, col=PINK):
     def mk():
-        h = int(w * 1.15)
         ss = 2
-        im, d = ss_draw(w + 40, h + 40, ss)
-        Sx = lambda *v: tuple(x * ss for x in v)
-        top, bot = 20 + h * 0.12, 20 + h
-        d.polygon([Sx(20, top), Sx(w + 20, top), Sx(w - 30, bot), Sx(70, bot)], fill=(150, 160, 172, 255), outline=(70, 76, 86, 255))
-        for k in range(1, 7):
-            u = k / 7
-            xt, xb = 20 + w * u, 70 + (w - 100) * u
-            d.line([Sx(xt, top + 10), Sx(xb, bot - 6)], fill=(110, 118, 130, 255), width=10 * ss)
-            d.line([Sx(xt + 9, top + 10), Sx(xb + 7, bot - 6)], fill=(196, 204, 214, 255), width=4 * ss)
-        d.ellipse(Sx(0, 20 + h * 0.02, w + 40, 20 + h * 0.2), fill=(176, 184, 196, 255), outline=(70, 76, 86, 255), width=6 * ss)
-        d.ellipse(Sx(30, 20 + h * 0.05, w + 10, 20 + h * 0.17), fill=(60, 52, 46, 255))
-        return ss_done(im, w + 40, h + 40)
-    return cached(('can', w), mk)
-
-def tortilla_sprite(R=220, seed=0, squash=0.55):
-    def mk():
-        w, h = 2 * R + 20, int(2 * R * squash) + 40
-        im, d = ss_draw(w, h, 2)
-        d.ellipse((20, 50, (2 * R + 10) * 2, (2 * R * squash + 30) * 2), fill=(206, 166, 92, 255))
-        d.ellipse((20, 20, (2 * R + 10) * 2, (2 * R * squash + 10) * 2), fill=(244, 222, 150, 255), outline=(206, 170, 96, 255), width=6)
-        rng = np.random.default_rng(seed)
-        for k in range(16):
-            a, r = rng.uniform(0, 2 * math.pi), rng.uniform(0, 0.8) * R
-            x, y = (R + 10 + math.cos(a) * r) * 2, (R * squash + 10 + math.sin(a) * r * squash) * 2
-            s = rng.uniform(6, 16) * 2
-            d.ellipse((x - s, y - s * squash, x + s, y + s * squash), fill=(176, 120, 60, 200))
-        return ss_done(im, w, h)
-    return cached(('tort', R, seed, squash), mk)
-
-def bag_sprite(w=300, col=(214, 50, 44), seed=0):
-    """Generic unbranded snack bag: crimped ends, a plain chip and the word CHIPS."""
-    def mk():
-        h = int(w * 1.35)
-        ss = 2
-        im, d = ss_draw(w + 20, h + 20, ss)
-        dk = tuple(int(c * 0.78) for c in col) + (255,)
-        d.rounded_rectangle((10 * ss, 30 * ss, (w + 10) * ss, (h - 10) * ss), radius=30 * ss, fill=col + (255,), outline=tuple(int(c * 0.55) for c in col) + (255,), width=5 * ss)
-        d.rectangle((10 * ss, 10 * ss, (w + 10) * ss, 44 * ss), fill=dk)
-        d.rectangle((10 * ss, (h - 34) * ss, (w + 10) * ss, (h + 4) * ss), fill=dk)
-        for x in np.arange(14, w + 10, 14):
-            d.line([(x * ss, 12 * ss), (x * ss, 42 * ss)], fill=tuple(int(c * 0.6) for c in col) + (255,), width=2 * ss)
-            d.line([(x * ss, (h - 32) * ss), (x * ss, (h + 2) * ss)], fill=tuple(int(c * 0.6) for c in col) + (255,), width=2 * ss)
-        d.rounded_rectangle(((w * 0.1 + 10) * ss, (h * 0.12 + 20) * ss, (w * 0.24) * ss, (h * 0.85) * ss), radius=16 * ss, fill=(255, 255, 255, 70))
-        out = ss_done(im, w + 20, h + 20)
-        c = chip_sprite(int(w * 0.52), True, seed)
-        out.alpha_composite(c, (int(w / 2 + 10 - c.width / 2), int(h * 0.46)))
-        t = text_img('CHIPS', int(w * 0.2), fill=WHITE, stroke=5, stroke_fill=(30, 20, 20))
-        out.alpha_composite(t, (int(w / 2 + 10 - t.width / 2), int(h * 0.18)))
-        return out
-    return cached(('bag', w, col, seed), mk)
-
-def cheese_sprite(w=320):
-    def mk():
-        h = int(w * 0.7)
-        im, d = ss_draw(w + 20, h + 20, 2)
-        pts = [(10, h * 0.45), (w + 10, h * 0.2), (w + 10, h + 10), (10, h + 10)]
-        d.polygon([(x * 2, y * 2) for x, y in pts], fill=(255, 200, 50, 255), outline=(190, 130, 20, 255), width=6)
-        d.polygon([(20, h * 0.9), ((w + 10) * 2, h * 0.4), ((w + 10) * 2, h * 0.72), (20, h * 1.16)], fill=(255, 226, 110, 255))
-        for (x, y, r) in ((0.3, 0.75, 0.08), (0.62, 0.62, 0.06), (0.8, 0.85, 0.07), (0.48, 0.9, 0.04)):
-            d.ellipse(((10 + w * x - w * r) * 2, (h * y - w * r) * 2, (10 + w * x + w * r) * 2, (h * y + w * r) * 2), fill=(222, 160, 30, 255))
-        return ss_done(im, w + 20, h + 20)
-    return cached(('cheese', w), mk)
-
-def pan_sprite(w=560):
-    def mk():
-        h = int(w * 0.5)
-        im, d = ss_draw(int(w * 1.6), h, 2)
-        d.rounded_rectangle((w * 0.95 * 2, h * 0.38 * 2, w * 1.58 * 2, h * 0.52 * 2), radius=20, fill=(40, 34, 32, 255))
-        d.ellipse((0, h * 0.1 * 2, w * 2, h * 0.95 * 2), fill=(50, 46, 46, 255))
-        d.ellipse((w * 0.06 * 2, h * 0.16 * 2, w * 0.94 * 2, h * 0.84 * 2), fill=(214, 168, 60, 255))
-        return ss_done(im, int(w * 1.6), h)
-    return cached(('pan', w), mk)
-
-def restaurant_sprite(w=900):
-    """Generic adobe-style restaurant front with a striped awning (no real building likeness)."""
-    def mk():
-        h = int(w * 0.85)
-        im, d = ss_draw(w, h, 2)
-        S2 = lambda *v: tuple(x * 2 for x in v)
-        d.rectangle(S2(0, h * 0.28, w, h), fill=(236, 186, 130, 255), outline=(150, 96, 60, 255), width=8)
-        d.rectangle(S2(w * 0.05, h * 0.04, w * 0.95, h * 0.28), fill=(214, 120, 60, 255), outline=(140, 70, 30, 255), width=8)
-        for k in range(10):
-            x0 = k * w / 10
-            c = (214, 50, 44, 255) if k % 2 == 0 else (255, 244, 220, 255)
-            d.rectangle(S2(x0, h * 0.36, x0 + w / 10, h * 0.46), fill=c)
-            d.pieslice(S2(x0, h * 0.41, x0 + w / 10, h * 0.51), 0, 180, fill=c)
-        d.rounded_rectangle(S2(w * 0.38, h * 0.6, w * 0.62, h), radius=80, fill=(120, 70, 40, 255), outline=(80, 44, 24, 255), width=8)
-        for x in (0.1, 0.72):
-            d.rounded_rectangle(S2(w * x, h * 0.62, w * (x + 0.18), h * 0.86), radius=40, fill=(255, 226, 150, 255), outline=(150, 96, 60, 255), width=8)
-        return ss_done(im, w, h)
-    return cached(('rest', w), mk)
-
-def knife_sprite(L=560):
-    def mk():
-        h = int(L * 0.2)
-        im = Image.new('RGBA', (L, h), (0, 0, 0, 0))
+        Wd = int(H * 0.78)
+        im, d = ss_draw(Wd, H, ss)
+        Z = lambda *v: tuple(x * ss for x in v)
+        bw = H * 0.46
+        cxp = H * 0.29
+        top, bot = H * 0.24, H * 0.98
+        c = col + (255,)
+        dk = tuple(int(v * 0.7) for v in col) + (255,)
+        # handle
+        hx0, hx1 = cxp + bw * 0.36, cxp + bw * 0.5 + H * 0.2
+        d.rounded_rectangle(Z(hx0, top + H * 0.08, hx1, top + H * 0.5), radius=int(H * 0.08 * ss), fill=dk)
+        d.rounded_rectangle(Z(hx0 + H * 0.02, top + H * 0.14, hx1 - H * 0.07, top + H * 0.44), radius=int(H * 0.05 * ss), fill=(0, 0, 0, 0))
+        # body: wide top, tapers to narrow base (car-cup-holder base)
+        body = [(cxp - bw / 2, top), (cxp + bw / 2, top), (cxp + bw * 0.42, top + H * 0.42), (cxp + bw * 0.33, top + H * 0.5),
+                (cxp + bw * 0.33, bot), (cxp - bw * 0.33, bot), (cxp - bw * 0.33, top + H * 0.5), (cxp - bw * 0.42, top + H * 0.42)]
+        body_im, bd = ss_draw(Wd, H, ss)
+        bd.polygon([Z(*p) for p in body], fill=c)
+        bd.ellipse(Z(cxp - bw * 0.33, bot - H * 0.03, cxp + bw * 0.33, bot + H * 0.012), fill=c)
+        body_im = shade_cyl(body_im, (cxp - bw / 2) * ss, (cxp + bw / 2) * ss)
+        im.alpha_composite(body_im)
         d = ImageDraw.Draw(im)
-        d.rounded_rectangle((0, h * 0.3, L * 0.36, h * 0.8), radius=int(h * 0.2), fill=(120, 70, 40, 255), outline=(70, 40, 20, 255), width=4)
-        d.polygon([(L * 0.36, h * 0.25), (L * 0.98, h * 0.42), (L * 0.98, h * 0.55), (L * 0.36, h * 0.85)], fill=(205, 212, 222, 255), outline=(120, 126, 140, 255))
-        d.line([(L * 0.38, h * 0.36), (L * 0.95, h * 0.46)], fill=(245, 248, 255, 255), width=5)
-        return im
-    return cached(('knife', L), mk)
+        # base band
+        d.rectangle(Z(cxp - bw * 0.33, bot - H * 0.07, cxp + bw * 0.33, bot - H * 0.055), fill=tuple(int(v * 0.8) for v in col) + (255,))
+        # lid
+        lid_im, ld = ss_draw(Wd, H, ss)
+        ld.rounded_rectangle(Z(cxp - bw * 0.53, top - H * 0.07, cxp + bw * 0.53, top + H * 0.02), radius=int(H * 0.03 * ss), fill=(236, 236, 240, 255))
+        ld.ellipse(Z(cxp - bw * 0.5, top - H * 0.1, cxp + bw * 0.5, top - H * 0.04), fill=(250, 250, 252, 255))
+        lid_im = shade_cyl(lid_im, (cxp - bw * 0.53) * ss, (cxp + bw * 0.53) * ss, 0.35, 0.2)
+        # straw (behind lid top edge)
+        sd = ImageDraw.Draw(im)
+        sd.polygon(Z(cxp + bw * 0.02, top - H * 0.07, cxp + bw * 0.1, top - H * 0.07, cxp + bw * 0.24, 0, cxp + bw * 0.16, 0), fill=tuple(int(v * 0.85) for v in col) + (255,))
+        im.alpha_composite(lid_im)
+        sd = ImageDraw.Draw(im)
+        sd.polygon(Z(cxp + bw * 0.03, top - H * 0.1, cxp + bw * 0.1, top - H * 0.1, cxp + bw * 0.24, 0, cxp + bw * 0.16, 0), fill=tuple(int(v * 0.85) for v in col) + (255,))
+        sd.polygon(Z(cxp + bw * 0.045, top - H * 0.1, cxp + bw * 0.065, top - H * 0.1, cxp + bw * 0.2, 0, cxp + bw * 0.18, 0), fill=(255, 255, 255, 120))
+        return ss_done(im, Wd, H)
+    return cached(('cup', H, col), mk)
+
+def thermos_sprite(H=820):
+    """Generic vintage green steel vacuum bottle with a cup-cap."""
+    def mk():
+        ss = 2
+        Wd = int(H * 0.42)
+        im, d = ss_draw(Wd, H, ss)
+        Z = lambda *v: tuple(x * ss for x in v)
+        g = (64, 120, 74, 255)
+        cxp = Wd / 2
+        bw = Wd * 0.8
+        d.rounded_rectangle(Z(cxp - bw / 2, H * 0.24, cxp + bw / 2, H * 0.99), radius=int(bw * 0.18 * ss), fill=g)
+        d.rounded_rectangle(Z(cxp - bw * 0.36, H * 0.15, cxp + bw * 0.36, H * 0.26), radius=int(10 * ss), fill=(170, 176, 182, 255))
+        d.rounded_rectangle(Z(cxp - bw * 0.46, H * 0.02, cxp + bw * 0.46, H * 0.17), radius=int(16 * ss), fill=(70, 128, 80, 255))
+        for y in (0.4, 0.82):
+            d.rectangle(Z(cxp - bw / 2, H * y, cxp + bw / 2, H * (y + 0.025)), fill=(46, 90, 54, 255))
+        im = shade_cyl(im, (cxp - bw / 2) * ss, (cxp + bw / 2) * ss, 0.5, 0.3)
+        return ss_done(im, Wd, H)
+    return cached(('thermos', H), mk)
+
+def tent_sprite(w=520):
+    def mk():
+        h = int(w * 0.75)
+        im, d = ss_draw(w, h, 2)
+        Z = lambda *v: tuple(x * 2 for x in v)
+        d.polygon(Z(w * 0.5, 0, w, h, 0, h), fill=(236, 140, 50, 255), outline=(150, 80, 20, 255))
+        d.polygon(Z(w * 0.5, 0, w * 0.72, h, w * 0.28, h), fill=(200, 100, 30, 255))
+        d.polygon(Z(w * 0.5, h * 0.35, w * 0.62, h, w * 0.38, h), fill=(60, 36, 20, 255))
+        return ss_done(im, w, h)
+    return cached(('tent', w), mk)
+
+def hardhat_sprite(w=360):
+    def mk():
+        h = int(w * 0.6)
+        im, d = ss_draw(w, h, 2)
+        Z = lambda *v: tuple(x * 2 for x in v)
+        d.pieslice(Z(w * 0.12, h * 0.05, w * 0.88, h * 1.4), 180, 360, fill=(255, 200, 40, 255))
+        d.rounded_rectangle(Z(0, h * 0.68, w, h * 0.86), radius=12, fill=(230, 170, 20, 255))
+        d.rectangle(Z(w * 0.46, h * 0.08, w * 0.54, h * 0.7), fill=(240, 186, 30, 255))
+        return ss_done(im, w, h)
+    return cached(('hat', w), mk)
+
+def phone_sprite(w=420, col=PINK):
+    def mk():
+        h = int(w * 1.9)
+        im, d = ss_draw(w, h, 2)
+        Z = lambda *v: tuple(x * 2 for x in v)
+        d.rounded_rectangle(Z(0, 0, w, h), radius=int(w * 0.16 * 2), fill=(30, 30, 36, 255))
+        d.rounded_rectangle(Z(w * 0.06, w * 0.06, w * 0.94, h - w * 0.06), radius=int(w * 0.12 * 2), fill=(255, 246, 250, 255))
+        d.rounded_rectangle(Z(w * 0.36, w * 0.09, w * 0.64, w * 0.16), radius=20, fill=(30, 30, 36, 255))
+        out = ss_done(im, w, h)
+        hd = chip('SHOP BLOG', int(w * 0.1), bg=(255, 120, 170), fg=WHITE, padx=18, pady=8)
+        out.alpha_composite(hd, (int(w / 2 - hd.width / 2), int(w * 0.14)))
+        c = cup_sprite(int(h * 0.5), col)
+        out.alpha_composite(c, (int(w / 2 - c.width * 0.37), int(h * 0.24)))
+        ht = heart_sprite(int(w * 0.08))
+        for k in range(3):
+            out.alpha_composite(ht, (int(w * 0.18 + k * w * 0.24), int(h * 0.82)))
+        return out
+    return cached(('phone', w, col), mk)
+
+def box_sprite(w=240):
+    def mk():
+        h = int(w * 0.8)
+        im, d = ss_draw(w, h, 2)
+        Z = lambda *v: tuple(x * 2 for x in v)
+        d.polygon(Z(0, h * 0.2, w * 0.7, h * 0.2, w * 0.7, h, 0, h), fill=(206, 156, 96, 255), outline=(130, 90, 50, 255))
+        d.polygon(Z(w * 0.7, h * 0.2, w, 0, w, h * 0.8, w * 0.7, h), fill=(170, 120, 70, 255), outline=(130, 90, 50, 255))
+        d.polygon(Z(0, h * 0.2, w * 0.3, 0, w, 0, w * 0.7, h * 0.2), fill=(226, 180, 120, 255), outline=(130, 90, 50, 255))
+        d.rectangle(Z(w * 0.3, h * 0.2, w * 0.4, h), fill=(236, 220, 180, 200))
+        return ss_done(im, w, h)
+    return cached(('box', w), mk)
+
+def clock_sprite(R=300):
+    def mk():
+        im, d = ss_draw(2 * R + 20, 2 * R + 20, 2)
+        Z = lambda *v: tuple(x * 2 for x in v)
+        d.ellipse(Z(10, 10, 2 * R + 10, 2 * R + 10), fill=(255, 255, 255, 255), outline=(40, 40, 50, 255), width=40)
+        for k in range(12):
+            a = k * math.pi / 6
+            r0, r1 = R * 0.78, R * 0.9
+            d.line(Z(R + 10 + math.cos(a) * r0, R + 10 + math.sin(a) * r0, R + 10 + math.cos(a) * r1, R + 10 + math.sin(a) * r1), fill=(40, 40, 50, 255), width=16)
+        return ss_done(im, 2 * R + 20, 2 * R + 20)
+    return cached(('clock', R), mk)
+
+def draw_clock_hands(img, cx, cy, R, ang_m, ang_h):
+    ov = OV(img, cx - R, cy - R, cx + R, cy + R)
+    for a, L, wd in ((ang_h, 0.5, 26), (ang_m, 0.75, 16)):
+        ov.d.line(ov.pts([(cx, cy), (cx + math.sin(a) * R * L, cy - math.cos(a) * R * L)]), fill=(214, 50, 44, 255), width=wd)
+    ov.d.ellipse(ov.box(cx - 24, cy - 24, cx + 24, cy + 24), fill=(40, 40, 50, 255))
+    ov.commit()
 
 def heart_sprite(R=70, col=(236, 60, 90)):
     def mk():
@@ -268,14 +265,12 @@ def bill_sprite(w=300):
         return im
     return cached(('bill', w), mk)
 
-def arrow_right(img, x0, x1, y, k, col=YEL):
-    if k <= 0:
-        return
-    x = x0 + (x1 - x0) * k
-    ov = OV(img, x0 - 20, y - 110, x + 130, y + 110)
-    ov.d.line(ov.pts([(x0, y), (x, y)]), fill=col + (255,), width=44)
-    ov.d.polygon(ov.pts([(x - 10, y - 90), (x - 10, y + 90), (x + 110, y)]), fill=col + (255,), outline=(30, 30, 30, 255))
-    ov.commit()
+def fade(sp, a):
+    if a >= 1:
+        return sp
+    sp = sp.copy()
+    sp.putalpha(sp.getchannel('A').point(lambda v: int(v * max(0, a))))
+    return sp
 
 def man_plate(c0, c1, seed, xs, yf, Hh, counter=None):
     lay = Layer()
@@ -284,416 +279,368 @@ def man_plate(c0, c1, seed, xs, yf, Hh, counter=None):
     img = wall_plate(c0, c1, seed, (CX, 1000, 1250), counter)
     return to_img(finish(to_arr(img), lay, (16, 24, 16, 0.4))).convert('RGBA')
 
-# ====================================================================== 0: hook - giant chip bursting out of a trash can
-CAN_Y = 1720
+# ====================================================================== 0: hook - giant tumbler flickering out of existence
 class Hook(Base):
-    z0, z1 = 1.28, 1.34
+    z0, z1 = 1.26, 1.34
     focus = (CX, 1110)
+    def tst(self):
+        return self.we('vanished') - 0.05
     def make_shakes(self):
-        return [(0.0, 12, 0.25), (self.we('born'), 12, 0.3), (self.we('Disneyland'), 12, 0.3), (self.ttr(), 24, 0.45)]
-    def ttr(self):
-        return self.we('trash!') - 0.05
+        return [(0.0, 12, 0.25), (self.we('Stanley'), 8, 0.2), (self.we('almost'), 10, 0.25), (self.tst(), 20, 0.4), (self.we('from') - 0.05, 12, 0.3)]
     def events(self):
-        return [(0.0, 'bigpop', 0.6), (self.we('born') - 0.03, 'pop', 0.5), (self.we('Disneyland') - 0.03, 'chime', 0.5),
-                (self.ttr(), 'thud', 0.8), (self.ttr() + 0.02, 'crack', 0.4)]
+        return [(self.we('almost') - 0.03, 'pop', 0.3), (self.tst(), 'buzzer', 0.35),
+                (self.we('from') - 0.03, 'chime', 0.35)]
     def plate(self):
-        self.can = trash_can(640)
-        self.chip = chip_sprite(860, True, 1)
-        self.minis = [chip_sprite(170, True, k + 3) for k in range(4)]
-        self.st = stamp('TRASH!', 150)
-        return wall_plate('#FFD7A8', '#B8502A', 23, (CX, 1050, 1250))
-    def hero(self, img, t):
-        for k in range(8):
-            ph = (t * 0.9 + k / 8) % 1.0
-            vx = (k - 3.5) * 230
-            x = CX + (k - 3.5) * 60 + vx * ph
-            y = CAN_Y - 300 - 1500 * ph + 1900 * ph * ph
-            if y < CAN_Y - 230:
-                paste_center(img, rot(self.minis[k % 4], (k * 47 + t * 300 * (1 if k % 2 else -1)) % 360, ('mc', k % 4)), x, y)
-        with_shadow(img, self.can, CX, CAN_Y + 150, a=0.45, blur=20)
-        ang = 8 * math.sin(t * 3.2)
-        bob = 26 * math.sin(t * 4.0)
-        with_shadow(img, rot(self.chip, ang, 'hc'), CX, 1240 + bob, a=0.35, blur=22, dx=24, dy=40)
+        self.cup = cup_sprite(1020, PINK)
+        self.st = stamp('ALMOST GONE!', 120)
+        return wall_plate('#FFD6E6', '#B0507E', 23, (CX, 1050, 1250))
+    def hero(self, img, t, flicker=True):
+        ang = 7 * math.sin(t * 3.4)
+        bob = 24 * math.sin(t * 4.2)
+        a = 1.0
+        if flicker and t > self.tst():
+            u = t - self.tst()
+            a = 0.35 + 0.65 * (0.5 + 0.5 * math.cos(u * 16)) if u < 0.8 else 0.6 + 0.4 * (0.5 + 0.5 * math.cos(u * 6))
+        for k in range(6):
+            ph = (t * 0.8 + k / 6) % 1
+            sparkle(img, CX - 430 + (k * 173) % 860, 1500 - 700 * ph, 30 * math.sin(math.pi * ph) + 4)
+        with_shadow(img, fade(rot(self.cup, ang, 'hc'), a), CX + 40, 1240 + bob, a=0.35 * a, blur=22, dx=24, dy=40)
     def dyn(self, img, t):
         self.hero(img, t)
-        pop(img, C('DISNEYLAND', 96, bg=YEL), CX, 1640, t, self.we('Disneyland') - 0.06, out_t=self.ttr() - 0.05)
-        stamp_in(img, self.st, CX, 1790, t, self.ttr())
+        stamp_in(img, self.st, CX, 1760, t, self.tst())
+        pop(img, C('STANLEY CUP', 90, bg=YEL), CX, 1590, t, self.we('Stanley') - 0.06, out_t=self.tst() - 0.1)
 
-# ====================================================================== 1: first ones didn't even have cheese
-class NoCheese(Base):
-    z0, z1 = 1.26, 1.32
+# ====================================================================== 1: three women with a shopping blog saved it
+class Saved(Base):
     def make_shakes(self):
-        return [(self.we('first'), 10, 0.25), (self.we('cheese.') - 0.05, 20, 0.4)]
+        return [(self.we('three'), 10, 0.25), (self.we('blog'), 12, 0.3), (self.we('saved') - 0.05, 22, 0.4)]
     def events(self):
-        return [(0.02, 'swipe', 0.5), (self.we('first') - 0.03, 'pop', 0.45), (self.we('even') - 0.03, 'bloop', 0.6),
-                (self.we('cheese.') - 0.05, 'buzzer', 0.5)]
+        return [(0.02, 'swipe', 0.5), (self.we('three') - 0.03, 'pop', 0.5), (self.we('women') - 0.03, 'pop', 0.4),
+                (self.we('blog') - 0.03, 'bloop', 0.6), (self.we('saved') - 0.05, 'party', 0.6)]
     def plate(self):
-        self.chip = chip_sprite(800, False, 2)
-        self.cheese = cheese_sprite(380)
-        self.st = stamp('NO CHEESE?!', 120, angle=-7)
-        return wall_plate('#FFF1B8', '#C98A2A', 19, (CX, 1000, 1250))
+        self.p_w = man_plate('#FFE6F0', '#C0608A', 17, [CX - 380, CX, CX + 380], 2120, 1050)
+        self.phone = phone_sprite(440, PINK)
+        self.heart = heart_sprite(70)
+        self.st = stamp('SAVED!', 170, color=GREEN, angle=-7)
+        return wall_plate('#FFE6F0', '#C0608A', 17, (CX, 1000, 1250))
     def dyn(self, img, t):
-        with_shadow(img, rot(self.chip, -6 + 5 * math.sin(t * 3), 'pc'), CX, 1130 + 14 * math.sin(t * 4), a=0.35, blur=20)
-        if t > 0.62:
-            pop(img, C('THE FIRST ONES', 92, bg=WHITE), CX, 560, t, 0.62)
-        tc = self.we('even') - 0.08
-        pop(img, self.cheese, CX + 310, 1560, t, tc)
-        red_x(img, CX + 310, 1560, 170, clamp01((t - self.we('cheese.') + 0.1) / 0.3))
-        stamp_in(img, self.st, CX - 80, 1800, t, self.we('cheese.') - 0.05)
+        tb = self.we('blog') - 0.1
+        if t < tb:
+            img.paste(self.p_w, (0, 0))
+            pop(img, C('3 WOMEN', 110, bg=WHITE), CX, 600, t, self.we('three') - 0.08)
+            return
+        with_shadow(img, rot(self.phone, 4 * math.sin(t * 3), 'ph'), CX, 1080 + 10 * math.sin(t * 4), a=0.4, blur=20)
+        for k in range(6):
+            ph = ((t - tb) * 0.9 + k / 6) % 1
+            x = CX + (380 if k % 2 else -380) + 30 * math.sin(t * 3 + k)
+            paste_center(img, self.heart, x, 1500 - 900 * ph, scale=0.6 + 0.4 * math.sin(math.pi * ph))
+        pop(img, C('A SHOPPING BLOG', 90, bg=YEL), CX, 560, t, tb)
+        stamp_in(img, self.st, CX, 1740, t, self.we('saved') - 0.05)
 
-# ====================================================================== 2: how did trash become a billion-dollar chip?
-class Billion(Base):
+# ====================================================================== 2: what did they tell Stanley?
+class Question(Base):
     def make_shakes(self):
-        return [(self.we('trash'), 12, 0.3), (self.we('billion-dollar') - 0.05, 22, 0.4)]
+        return [(self.we('tell'), 10, 0.25), (self.we('changed'), 14, 0.3), (self.we('everything?') - 0.05, 18, 0.35)]
     def events(self):
-        ev = [(0.02, 'swipe', 0.5), (self.we('trash') - 0.03, 'thud', 0.55), (self.we('turn') - 0.03, 'riser', 0.4),
-              (self.we('billion-dollar') - 0.05, 'cash', 0.6)]
+        ev = [(0.02, 'swipe', 0.5), (self.we('tell') - 0.03, 'pop', 0.5), (self.we('changed') - 0.03, 'riser', 0.45)]
         for k in range(3):
-            ev.append((self.we('chip?') - 0.25 + k * 0.1, 'pop', 0.35))
+            ev.append((self.we('that') + k * 0.1, 'pop', 0.35))
         return ev
     def plate(self):
-        self.can = trash_can(400)
-        self.chip = chip_sprite(440, True, 4)
-        self.bill = bill_sprite(280)
+        self.cups = [cup_sprite(620, c) for c in (SAGE, PINK, CREAM)]
         return wall_plate('#D8D4F2', '#4E4A8A', 5, (CX, 1000, 1300))
     def dyn(self, img, t):
-        tb = self.we('billion-dollar') - 0.08
-        with_shadow(img, self.can, CX - 280, 1100, a=0.4)
-        arrow_right(img, CX - 60, CX + 40, 1100, ease_out(clamp01((t - self.we('turn') + 0.05) / 0.3)))
-        if t > tb:
-            glow(img, CX + 300, 1100, 360, (255, 230, 120), 0.5 * clamp01((t - tb) / 0.3))
-            for k in range(12):
-                t0 = tb + k * 0.07
+        tc = self.we('changed') - 0.08
+        glow(img, CX, 1100, 520, (255, 220, 240), 0.35)
+        for j in (0, 2, 1):
+            x = CX + (j - 1) * 340
+            y = 1150 + (0 if j == 1 else 70) + 14 * math.sin(t * 4 + j)
+            pop(img, rot(self.cups[j], (j - 1) * -8, ('qc', j)), x + 40, y, t, 0.04 + 0.12 * abs(j - 1))
+        pop(img, C('WHAT DID THEY SAY?', 84, bg=WHITE), CX, 560, t, 0.05)
+        if t > tc:
+            pop(img, C('IT CHANGED EVERYTHING', 70, bg=YEL), CX, 1740, t, tc)
+        for k in range(3):
+            pop(img, qmark(170 + 40 * (k % 2), YEL if k % 2 else WHITE), CX - 380 + k * 380, 800 + 14 * math.sin(t * 6 + k), t, self.we('that') + k * 0.1)
+
+# ====================================================================== 3: 1913 steel bottles for workers and campers
+class Steel1913(Base):
+    def t13(self):
+        return self.we('1913,') - 0.06
+    def make_shakes(self):
+        return [(self.t13(), 20, 0.4), (self.we('steel'), 12, 0.3), (self.we('workers') - 0.05, 14, 0.3), (self.we('campers.') - 0.05, 14, 0.3)]
+    def events(self):
+        return [(0.02, 'swipe', 0.5), (self.t13(), 'boom', 0.55), (self.we('steel') - 0.03, 'ding', 0.6),
+                (self.we('bottles') - 0.03, 'pop', 0.4), (self.we('workers') - 0.05, 'thud', 0.6), (self.we('and') - 0.03, 'pop', 0.5)]
+    def plate(self):
+        self.th = thermos_sprite(900)
+        self.hat = hardhat_sprite(380)
+        self.tent = tent_sprite(460)
+        return wall_plate('#E9DCC0', '#7A6040', 41, (CX, 1000, 1250))
+    def dyn(self, img, t):
+        t13, ts = self.t13(), self.we('steel') - 0.08
+        if t < ts:
+            stamp_in(img, big_text('1913', 320, YEL), CX, 1100, t, max(0.0, t13))
+            pop(img, C('BACK IN...', 90, bg=WHITE), CX, 600, t, 0.03)
+            return
+        x_th = CX - 230
+        with_shadow(img, rot(self.th, 5 * math.sin(t * 3), 'th'), x_th, 1120, a=0.4, blur=18)
+        pop(img, C('1913', 100, bg=YEL), CX, 560, t, ts)
+        pop(img, C('STEEL BOTTLE', 70, bg=WHITE), x_th, 1660, t, self.we('bottles') - 0.08)
+        tw, tc = self.we('workers') - 0.08, self.we('and') - 0.06
+        pop(img, self.hat, CX + 290, 900 + 10 * math.sin(t * 5), t, tw)
+        pop(img, C('WORKERS', 70, bg=WHITE), CX + 290, 1080, t, tw)
+        pop(img, self.tent, CX + 290, 1500, t, tc)
+        pop(img, C('CAMPERS', 70, bg=(236, 140, 50), fg=WHITE), CX + 290, 1740, t, tc)
+
+# ====================================================================== 4: 2016 Quencher, slow sales, stopped restocking
+class SlowSales(Base):
+    def tsl(self):
+        return self.we('slow,') - 0.06
+    def trs(self):
+        return self.we('restocking') - 0.06
+    def make_shakes(self):
+        return [(self.we('Quencher'), 12, 0.3), (self.we('2016,'), 16, 0.35), (self.tsl(), 14, 0.3), (self.trs(), 22, 0.4)]
+    def events(self):
+        return [(0.02, 'swipe', 0.5), (self.we('Quencher') - 0.03, 'pop', 0.5), (self.we('2016,') - 0.03, 'boom', 0.5),
+                (self.we('sales') - 0.03, 'riser', 0.3), (self.tsl(), 'bloop', 0.55), (self.trs(), 'buzzer', 0.55)]
+    def plate(self):
+        self.cup = cup_sprite(860, SAGE)
+        self.st = stamp('NO RESTOCK', 130)
+        self.p_shelf = wall_plate('#E6E6EA', '#6A6A78', 12, (CX, 1000, 1250), counter=(1500, '#9A9AA4'))
+        return wall_plate('#DDF0E0', '#3E7A56', 15, (CX, 1000, 1250))
+    def dyn(self, img, t):
+        ts, tsl, trs = self.we('sales') - 0.1, self.tsl(), self.trs()
+        if t < ts:
+            with_shadow(img, rot(self.cup, 5 * math.sin(t * 3), 'sc'), CX + 40, 1150, a=0.38, blur=20)
+            pop(img, C('THE QUENCHER', 96, bg=WHITE), CX, 560, t, 0.03)
+            pop(img, C('2016', 110, bg=YEL), CX, 1740, t, self.we('2016,') - 0.08)
+            return
+        if t < trs:
+            ov = OV(img, CX - 470, 640, CX + 470, 1620)
+            ov.d.line(ov.pts([(CX - 420, 700), (CX - 420, 1560), (CX + 440, 1560)]), fill=(30, 30, 40, 255), width=14)
+            k = ease_out(clamp01((t - ts) / 0.9))
+            pts = [(CX - 400 + 820 * u, 900 + 560 * (u ** 1.3) + 40 * math.sin(u * 12)) for u in np.linspace(0, k, 24)]
+            if k > 0.02:
+                ov.d.line(ov.pts(pts), fill=(214, 50, 44, 255), width=22, joint='curve')
+            ov.commit()
+            pop(img, C('SALES', 100, bg=WHITE), CX, 560, t, ts)
+            stamp_in(img, stamp('SO SLOW...', 120, color=(90, 90, 110)), CX + 80, 1000, t, tsl)
+            return
+        img.paste(self.p_shelf, (0, 0))
+        ov = OV(img, CX - 520, 1300, CX + 520, 1540)
+        ov.d.rectangle(ov.box(CX - 500, 1480, CX + 500, 1520), fill=(120, 90, 60, 255))
+        ov.commit()
+        for k in range(3):
+            pop(img, qmark(150, WHITE), CX - 320 + k * 320, 1300, t, trs + 0.1 + k * 0.08)
+        pop(img, C('EMPTY SHELF', 90, bg=WHITE), CX, 600, t, trs)
+        stamp_in(img, self.st, CX, 1020, t, trs)
+
+# ====================================================================== 5: Utah blog founders bought 5,000 cups
+class Bought(Base):
+    def t5k(self):
+        return self.we('5,000') - 0.06
+    def make_shakes(self):
+        return [(self.we('Utah'), 12, 0.3), (self.we('bought'), 12, 0.3), (self.t5k(), 22, 0.4), (self.we('followers.') - 0.1, 12, 0.3)]
+    def events(self):
+        ev = [(0.02, 'swipe', 0.5), (self.we('founders') - 0.03, 'pop', 0.45), (self.we('Utah') - 0.03, 'chime', 0.55),
+              (self.we('bought') - 0.03, 'cash', 0.6), (self.t5k(), 'boom', 0.55)]
+        for k in range(5):
+            ev.append((self.t5k() + 0.15 + k * 0.14, 'thud', 0.3))
+        ev.append((self.we('followers.') - 0.3, 'party', 0.45))
+        return ev
+    def plate(self):
+        self.p_w = man_plate('#FFE6F0', '#C0608A', 17, [CX - 380, CX, CX + 380], 2120, 1050)
+        self.box = box_sprite(250)
+        self.cups = [cup_sprite(300, c) for c in CUP_COLS]
+        self.heart = heart_sprite(60)
+        return wall_plate('#FFF1D8', '#C08A50', 7, (CX, 1000, 1250), counter=(1560, '#9A7050'))
+    def dyn(self, img, t):
+        tb, t5 = self.we('bought') - 0.08, self.t5k()
+        if t < tb:
+            img.paste(self.p_w, (0, 0))
+            pop(img, C('THE FOUNDERS', 96, bg=WHITE), CX, 600, t, 0.03, out_t=self.we('Utah') - 0.1)
+            if t > self.we('Utah') - 0.1:
+                pop(img, C('IN UTAH', 110, bg=YEL), CX, 600, t, self.we('Utah') - 0.08)
+            return
+        n = 0 if t < t5 else min(15, int((t - t5) * 12) + 1)
+        for k in range(n):
+            col, row = k % 5, k // 5
+            paste_center(img, self.box, CX - 440 + col * 220, 1460 - row * 170)
+        if n == 0:
+            for k in range(3):
+                pop(img, self.cups[k], CX - 300 + k * 300 + 30, 1150, t, tb + k * 0.06)
+        pop(img, C('BOUGHT', 100, bg=WHITE), CX, 560, t, tb, out_t=t5 - 0.1)
+        if t > t5 - 0.1:
+            pop(img, C('5,000 CUPS', 120, bg=YEL), CX, 560, t, t5)
+        tf = self.we('followers.') - 0.3
+        if t > tf:
+            for k in range(5):
+                ph = ((t - tf) * 1.2 + k / 5) % 1
+                paste_center(img, self.heart, CX - 400 + k * 200, 900 - 200 * ph, scale=0.6 + 0.3 * math.sin(math.pi * ph))
+            pop(img, C('FOR THEIR FOLLOWERS', 70, bg=WHITE), CX, 1760, t, tf)
+
+# ====================================================================== 6: sold out in just days
+class SoldOut(Base):
+    def make_shakes(self):
+        return [(self.we('sold'), 14, 0.3), (self.we('days.') - 0.05, 22, 0.4)]
+    def events(self):
+        ev = [(0.02, 'swipe', 0.5), (self.we('sold') - 0.03, 'cash', 0.6)]
+        for k in range(4):
+            ev.append((self.we('sold') + 0.1 + k * 0.12, 'pop', 0.3))
+        ev.append((self.we('days.') - 0.3, 'boom', 0.6))
+        return ev
+    def plate(self):
+        self.box = box_sprite(250)
+        self.st = stamp('SOLD OUT!', 160)
+        return wall_plate('#FFF1D8', '#C08A50', 7, (CX, 1000, 1250), counter=(1560, '#9A7050'))
+    def dyn(self, img, t):
+        ts = self.we('sold') - 0.08
+        for k in range(15):
+            col, row = k % 5, k // 5
+            gone = ts + (14 - k) * 0.06
+            if t < gone:
+                paste_center(img, self.box, CX - 440 + col * 220, 1460 - row * 170)
+            elif t < gone + 0.3:
+                u = (t - gone) / 0.3
+                paste_center(img, fade(self.box, 1 - u), CX - 440 + col * 220, 1460 - row * 170 - 500 * u)
+        pop(img, C('IN JUST DAYS', 100, bg=YEL), CX, 560, t, self.we('just') - 0.08)
+        stamp_in(img, self.st, CX, 1060, t, ts + 0.15)
+
+# ====================================================================== 7: next 5,000 sold out in about an hour
+class OneHour(Base):
+    def th(self):
+        return self.we('hour!') - 0.06
+    def make_shakes(self):
+        return [(self.we('next'), 10, 0.25), (self.we('5,000'), 16, 0.35), (self.we('sold'), 12, 0.3), (self.th(), 24, 0.45)]
+    def events(self):
+        ev = [(0.02, 'swipe', 0.5), (self.we('next') - 0.03, 'pop', 0.45), (self.we('5,000') - 0.03, 'boom', 0.5)]
+        for k in range(6):
+            ev.append((self.we('sold') + k * 0.16, 'tick', 0.45))
+        ev.append((self.we('an') - 0.03, 'ding', 0.8))
+        return ev
+    def plate(self):
+        self.clock = clock_sprite(330)
+        self.st = stamp('~1 HOUR!', 160)
+        return wall_plate('#FFE0D0', '#B0402C', 29, (CX, 1000, 1250))
+    def dyn(self, img, t):
+        tsd = self.we('sold') - 0.06
+        glow(img, CX, 1100, 520, (255, 230, 200), 0.35)
+        with_shadow(img, self.clock, CX, 1100, a=0.4, blur=18)
+        sp = 0 if t < tsd else (t - tsd)
+        draw_clock_hands(img, CX, 1100, 330, sp * 14.0, sp * 1.17)
+        pop(img, C('THE NEXT 5,000', 96, bg=WHITE), CX, 560, t, 0.03)
+        pop(img, C('SOLD OUT', 96, bg=YEL), CX, 1700, t, tsd, out_t=self.we('an') - 0.15)
+        stamp_in(img, self.st, CX, 1720, t, self.we('an') - 0.06)
+
+# ====================================================================== 8: $70 million -> $750 million
+class Sales(Base):
+    def t70(self):
+        return self.we('$70') - 0.06
+    def t750(self):
+        return self.we('$750') - 0.06
+    def make_shakes(self):
+        return [(self.we('jumped'), 14, 0.3), (self.t70(), 14, 0.3), (self.t750(), 24, 0.45)]
+    def events(self):
+        return [(0.02, 'swipe', 0.5), (self.we('yearly') - 0.03, 'pop', 0.45), (self.we('jumped') - 0.03, 'bloop', 0.6),
+                (self.t70(), 'pop', 0.55), (self.we('to') - 0.03, 'riser', 0.55), (self.t750(), 'cash', 0.8)]
+    def plate(self):
+        self.bill = bill_sprite(260)
+        return wall_plate('#DFF3DA', '#2E7A40', 11, (CX, 1000, 1250))
+    def dyn(self, img, t):
+        t70, t750, tr = self.t70(), self.t750(), self.we('to') - 0.08
+        base_y = 1600
+        ov = OV(img, CX - 500, 600, CX + 500, base_y + 30)
+        ov.d.line(ov.pts([(CX - 460, base_y), (CX + 460, base_y)]), fill=(30, 30, 40, 255), width=14)
+        h70 = 90 * ease_out(clamp01((t - t70) / 0.4))
+        if h70 > 1:
+            ov.d.rounded_rectangle(ov.box(CX - 380, base_y - h70, CX - 120, base_y), radius=12, fill=(150, 160, 150, 255), outline=(60, 70, 60, 255), width=6)
+        h750 = 880 * ease_out(clamp01((t - tr) / (t750 - tr + 0.4)))
+        if h750 > 1:
+            ov.d.rounded_rectangle(ov.box(CX + 100, base_y - h750, CX + 400, base_y), radius=12, fill=(80, 190, 100, 255), outline=(30, 100, 40, 255), width=6)
+        ov.commit()
+        if t > t70:
+            pop(img, C('$70M', 100, bg=WHITE), CX - 250, 1130, t, t70)
+            pop(img, C('2019', 60, bg=WHITE), CX - 250, base_y + 110, t, t70)
+        if t > tr:
+            pop(img, C('2023', 60, bg=WHITE), CX + 250, base_y + 110, t, tr)
+        if t > t750:
+            pop(img, C('$750M', 110, bg=YEL), CX + 250, base_y - h750 - 30, t, t750)
+            for k in range(10):
+                t0 = t750 + k * 0.08
                 if t < t0:
                     continue
                 u = t - t0
-                x = CX + 300 + ((k * 137) % 440) - 220
-                y = 640 + 800 * u
+                y = 640 + 900 * u
                 if y < 1500:
-                    paste_center(img, rot(self.bill, (k * 40 + u * 200) % 360, ('bl', k)), x, y, scale=0.7)
-            pop(img, self.chip, CX + 300, 1100, t, tb)
-            pop(img, C('$1,000,000,000', 96, bg=(120, 200, 110)), CX, 1720, t, tb)
-        pop(img, C('TRASH', 92, bg=WHITE), CX - 280, 800, t, self.we('trash') - 0.06)
-        for k in range(3):
-            pop(img, qmark(180 + 40 * (k % 2), YEL if k % 2 else WHITE), CX - 360 + k * 360, 540 + 12 * math.sin(t * 6 + k), t, self.we('chip?') - 0.25 + k * 0.1)
+                    paste_center(img, rot(self.bill, (k * 40 + u * 220) % 360, ('bl', k)), CX - 450 + (k * 137) % 900, y, scale=0.7)
+        if t < t70:
+            pop(img, C('YEARLY SALES', 100, bg=WHITE), CX, 1000, t, self.we('yearly') - 0.08)
 
-# ====================================================================== 3: as the story goes, Disneyland had Casa de Fritos
-class Casa(Base):
-    z0, z1 = 1.22, 1.32
-    def make_shakes(self):
-        return [(self.we('Disneyland'), 12, 0.3), (self.we('Mexican'), 12, 0.3), (self.we('Casa'), 20, 0.4)]
-    def events(self):
-        return [(0.02, 'swipe', 0.5), (self.we('story') - 0.03, 'chime', 0.45), (self.we('Disneyland') - 0.03, 'party', 0.5),
-                (self.we('Mexican') - 0.03, 'thud', 0.6), (self.we('restaurant') - 0.03, 'pop', 0.45), (self.we('Casa') - 0.03, 'boom', 0.55)]
-    def plate(self):
-        self.rest = restaurant_sprite(900)
-        self.bal = [heart_sprite(60, c) for c in ((236, 60, 90), (60, 150, 236), (255, 200, 40))]
-        self.st = stamp('CASA DE FRITOS', 92, angle=-6)
-        return wall_plate('#BFE6FF', '#2A6FB0', 31, (CX, 1000, 1250), counter=(1500, '#8FBF60'))
-    def dyn(self, img, t):
-        td, tm, tc = self.we('Disneyland') - 0.08, self.we('Mexican') - 0.08, self.we('Casa') - 0.05
-        if t < td:
-            for k in range(3):
-                pop(img, qmark(170, YEL if k % 2 else WHITE), CX - 320 + k * 320, 900 + 15 * math.sin(t * 5 + k), t, 0.25 + k * 0.15)
-            pop(img, C('AS THE STORY GOES...', 86, bg=WHITE), CX, 1100, t, 0.0)
-            return
-        for k in range(6):
-            u = (t - td) * 0.3 + k / 6
-            x = CX - 480 + k * 190 + 20 * math.sin(t * 2 + k)
-            y = 1500 - (u % 1.0) * 1100
-            if t > td + k * 0.06:
-                ov = OV(img, x - 4, y + 50, x + 4, y + 200)
-                ov.d.line(ov.pts([(x, y + 55), (x, y + 200)]), fill=(255, 255, 255, 200), width=3)
-                ov.commit()
-                paste_center(img, self.bal[k % 3], x, y, scale=0.9)
-        if t >= tm:
-            k = ease_back(clamp01((t - tm) / 0.35), 1.8)
-            with_shadow(img, self.rest, CX, 1160 + 500 * (1 - k), a=0.35, blur=18)
-        pop(img, C('DISNEYLAND', 110, bg=YEL), CX, 560, t, td)
-        if t > tm:
-            pop(img, C('MEXICAN RESTAURANT', 70, bg=WHITE), CX, 1700, t, tm, out_t=tc - 0.1)
-        stamp_in(img, self.st, CX, 1700, t, tc)
-
-# ====================================================================== 4: cooks kept throwing old tortillas in the trash
-class Toss(Base):
-    def make_shakes(self):
-        return [(self.we('throwing'), 10, 0.25), (self.we('trash.') - 0.05, 20, 0.4)]
-    def events(self):
-        ev = [(0.02, 'swipe', 0.5), (self.we('cooks') - 0.03, 'pop', 0.45)]
-        for k in range(4):
-            ev.append((self.we('throwing') + 0.25 + k * 0.32, 'thud', 0.35))
-        ev.append((self.we('trash.') - 0.06, 'buzzer', 0.45))
-        return ev
-    def plate(self):
-        self.can = trash_can(520)
-        self.torts = [tortilla_sprite(150, k, 0.6) for k in range(4)]
-        self.hand = get_hand(560, -0.9)
-        self.st = stamp('TOSSED!', 140)
-        return wall_plate('#FFE7B0', '#C77A30', 8, (CX, 1000, 1300), counter=(1420, '#8A6040'))
-    def dyn(self, img, t):
-        cx_can = CX + 260
-        with_shadow(img, self.can, cx_can, 1250, a=0.4)
-        for k in range(5):
-            paste_center(img, self.torts[k % 4], CX - 300, 1450 - k * 26)
-        th = self.we('throwing') - 0.1
-        for k in range(6):
-            t0 = th + k * 0.32
-            if t < t0:
-                continue
-            u = (t - t0) / 0.45
-            if u > 1:
-                continue
-            x = CX - 300 + (cx_can - CX + 300) * u
-            y = 1330 - 560 * math.sin(math.pi * u) - 300 * u
-            paste_center(img, rot(self.torts[k % 4], (u * 400) % 360, ('tt', k % 4)), x, y)
-        hk = abs(math.sin(t * 7))
-        draw_hand(img, self.hand, (CX - 330 + 40 * hk, 1280 - 60 * hk))
-        pop(img, C('THE COOKS', 92, bg=WHITE), CX, 560, t, 0.05, out_t=self.we('old') - 0.1)
-        if t > self.we('old') - 0.1:
-            pop(img, C('OLD TORTILLAS', 92, bg=YEL), CX, 560, t, self.we('old') - 0.08)
-        stamp_in(img, self.st, CX, 1720, t, self.we('trash.') - 0.06)
-
-# ====================================================================== 5: salesman: stop, cut them up and fry them!
-class Salesman(Base):
-    def ts(self):
-        return self.we('stop,') - 0.06
-    def tc(self):
-        return self.we('cut') - 0.06
-    def tf(self):
-        return self.we('fry') - 0.06
-    def make_shakes(self):
-        return [(self.we('salesman'), 10, 0.25), (self.ts(), 22, 0.4), (self.tc(), 12, 0.3), (self.tf(), 16, 0.35)]
-    def events(self):
-        return [(0.02, 'swipe', 0.5), (self.we('salesman') - 0.03, 'pop', 0.5), (self.we('supplier') - 0.03, 'pop', 0.4),
-                (self.ts(), 'buzzer', 0.5), (self.tc(), 'scratch', 0.6), (self.we('up') - 0.03, 'scratch', 0.5), (self.tf(), 'sizzle', 0.7)]
-    def plate(self):
-        self.p_man = man_plate('#C8F0D8', '#2F8A5A', 13, [CX], 2050, 1250)
-        self.tort = tortilla_sprite(300, 2, 0.6)
-        self.knife = knife_sprite(560)
-        self.pan = pan_sprite(620)
-        self.wedges = [chip_sprite(150, False, k + 10) for k in range(4)]
-        self.st = stamp('STOP!', 170)
-        self.st2 = stamp('FRY THEM!', 130, angle=-6)
-        return wall_plate('#FFE7B0', '#C77A30', 8, (CX, 1000, 1300), counter=(1350, '#8A6040'))
-    def dyn(self, img, t):
-        ts, tc, tf = self.ts(), self.tc(), self.tf()
-        if t < tc:
-            img.paste(self.p_man, (0, 0))
-            pop(img, C('A SALESMAN', 96, bg=WHITE), CX, 560, t, self.we('salesman') - 0.08)
-            pop(img, C('FROM THE TORTILLA SUPPLIER', 58, bg=YEL), CX, 1660, t, self.we('supplier') - 0.1)
-            stamp_in(img, self.st, CX, 1000, t, ts)
-            return
-        if t < tf:
-            paste_center(img, self.tort, CX, 1150, scale=1.3)
-            ov = OV(img, CX - 420, 900, CX + 420, 1400)
-            cuts = clamp01((t - tc) / 0.5)
-            for k in range(3):
-                if cuts * 3 > k:
-                    a = math.radians(30 + 60 * k)
-                    ov.d.line(ov.pts([(CX - 370 * math.cos(a), 1160 - 200 * math.sin(a)), (CX + 370 * math.cos(a), 1160 + 200 * math.sin(a))]), fill=(150, 100, 50, 255), width=10)
-            ov.commit()
-            kk = abs(math.sin((t - tc) * 9))
-            paste_center(img, rot(self.knife, -30 + 15 * kk, 'skn'), CX + 120, 950 + 120 * kk, scale=1.2)
-            pop(img, C('CUT THEM UP', 96, bg=WHITE), CX, 560, t, tc)
-            return
-        with_shadow(img, self.pan, CX + 120, 1250, a=0.4)
-        for k in range(4):
-            x = CX - 120 + (k - 1.5) * 150
-            y = 1240 + 14 * math.sin(t * 14 + k)
-            pop(img, rot(self.wedges[k], k * 70 + 20, ('wd', k)), x, y, t, tf + k * 0.06)
-        for k in range(10):
-            ph = (t * 1.6 + k * 0.13) % 1
-            sparkle(img, CX - 330 + (k * 73) % 460, 1200 - 200 * ph, 14 * (1 - ph) + 4, 0.8)
-        stamp_in(img, self.st2, CX, 600, t, tf)
-
-# ====================================================================== 6: guests loved them, chips went on the menu
-class Menu(Base):
-    def tm(self):
-        return self.we('chips') - 0.08
-    def make_shakes(self):
-        return [(self.we('loved'), 14, 0.3), (self.tm(), 12, 0.3), (self.we('menu.') - 0.05, 18, 0.35)]
-    def events(self):
-        ev = [(0.02, 'swipe', 0.5), (self.we('loved') - 0.03, 'party', 0.55)]
-        for k in range(3):
-            ev.append((self.we('loved') + 0.05 + k * 0.1, 'pop', 0.3))
-        ev += [(self.tm(), 'thud', 0.6), (self.we('menu.') - 0.08, 'ding', 0.7)]
-        return ev
-    def plate(self):
-        self.p_g = man_plate('#FFE2C4', '#C2643C', 23, [CX - 380, CX, CX + 380], 2150, 1000)
-        self.heart = heart_sprite(80)
-        self.basket = [chip_sprite(200, False, k + 20) for k in range(6)]
-        return wall_plate('#3A3A44', '#141418', 41, (CX, 1000, 1100))
-    def dyn(self, img, t):
-        tm = self.tm()
-        if t < tm:
-            img.paste(self.p_g, (0, 0))
-            for k in range(3):
-                x = CX - 380 + k * 380
-                pop(img, self.heart, x, 1020 - 30 * math.sin(t * 5 + k), t, self.we('loved') - 0.05 + k * 0.1)
-            pop(img, C('GUESTS LOVED THEM', 84, bg=WHITE), CX, 560, t, 0.05)
-            return
-        ov = OV(img, CX - 470, 700, CX + 470, 1500)
-        ov.d.rounded_rectangle(ov.box(CX - 450, 720, CX + 450, 1480), radius=24, fill=(34, 48, 40, 255), outline=(140, 96, 56, 255), width=26)
-        ov.commit()
-        pop(img, big_text('MENU', 120, WHITE), CX, 840, t, tm)
-        for k, (txt, d0) in enumerate((('TACOS', 0.08), ('TAMALES', 0.16))):
-            pop(img, text_img(txt, 72, fill=(230, 230, 220)), CX, 990 + k * 110, t, tm + d0)
-        pop(img, C('NEW: TORTILLA CHIPS!', 64, bg=YEL), CX, 1250, t, self.we('menu.') - 0.1)
-        for k in range(6):
-            paste_center(img, rot(self.basket[k], k * 55, ('bk', k)), CX - 300 + k * 120, 1390 + 10 * (k % 2))
-
-# ====================================================================== 7: Arch West noticed; 1966 nationwide
-class ArchWest(Base):
-    def t66(self):
-        return self.we('1966,') - 0.08
+# ====================================================================== 9: secret - wrong people: not campers, but women
+class Secret(Base):
     def tn(self):
-        return self.we('nationwide.') - 0.08
+        return self.we('Not') - 0.06
+    def tw(self):
+        return self.we('women!') - 0.06
     def make_shakes(self):
-        return [(self.we('boss'), 10, 0.25), (self.we('Arch'), 12, 0.3), (self.we('noticed,'), 14, 0.3), (self.t66(), 22, 0.4), (self.tn(), 18, 0.4)]
+        return [(self.we('secret?'), 14, 0.3), (self.we('wrong'), 18, 0.35), (self.tn(), 12, 0.3), (self.tw(), 24, 0.45)]
     def events(self):
-        ev = [(0.02, 'swipe', 0.5), (self.we('Frito-Lay') - 0.03, 'pop', 0.5), (self.we('Arch') - 0.03, 'chime', 0.55),
-              (self.we('noticed,') - 0.03, 'ding', 0.7), (self.t66(), 'boom', 0.6), (self.we('sold') - 0.03, 'cash', 0.5)]
-        for k in range(5):
-            ev.append((self.we('sold') + 0.05 + k * 0.1, 'pop', 0.3))
-        ev.append((self.tn(), 'thud', 0.5))
+        ev = [(0.02, 'swipe', 0.5), (self.we('secret?') - 0.03, 'riser', 0.5), (self.we('told') - 0.03, 'pop', 0.4),
+              (self.we('wrong') - 0.03, 'buzzer', 0.55), (self.we('campers,') - 0.03, 'scratch', 0.5), (self.we('but') - 0.03, 'party', 0.7)]
         return ev
     def plate(self):
-        lay = Layer()
-        mannequin(lay, CX, 2150, 1500)
-        img = wall_plate('#5A4A8A', '#1C1838', 9, (CX, 1000, 900))
-        self.p_vp = to_img(finish(to_arr(img), lay, (16, 24, 16, 0.4))).convert('RGBA')
-        self.excl = big_text('!', 260, YEL)
-        cols = [(214, 50, 44), (40, 110, 210), (60, 160, 80), (130, 60, 170), (240, 140, 30)]
-        self.bags = [bag_sprite(220, cols[k % 5], k) for k in range(5)]
-        self.st = stamp('NATIONWIDE!', 120, angle=-7)
-        return wall_plate('#BFE6FF', '#2A6FB0', 31, (CX, 1000, 1250))
+        self.tent = tent_sprite(600)
+        self.cups = [cup_sprite(380, c) for c in CUP_COLS]
+        self.p_w = man_plate('#FFE6F0', '#C0608A', 17, [CX - 380, CX, CX + 380], 2120, 1050)
+        self.st = stamp('WRONG PEOPLE!', 110)
+        return wall_plate('#2C2A3A', '#121018', 41, (CX, 1000, 1000))
     def dyn(self, img, t):
-        t66 = self.t66()
-        if t < t66:
-            img.paste(self.p_vp, (0, 0))
-            glow(img, CX, 900, 600, (255, 240, 200), 0.35)
-            pop(img, C('FRITO-LAY BOSS', 96, bg=WHITE), CX, 560, t, 0.05, out_t=self.we('Arch') - 0.1)
-            if t > self.we('Arch') - 0.1:
-                pop(img, C('ARCH WEST', 110, bg=YEL), CX, 560, t, self.we('Arch') - 0.08)
-            pop(img, self.excl, CX + 300, 820 + 10 * math.sin(t * 9), t, self.we('noticed,') - 0.08)
-            pop(img, C('NOTICED!', 90, bg=WHITE), CX, 1700, t, self.we('noticed,') - 0.06)
-            return
-        ts = self.we('sold') - 0.1
-        n = 0 if t < ts else min(20, int((t - ts) * 14) + 1)
-        for k in range(n):
-            col, row = k % 5, k // 5
-            x = CX - 440 + col * 220
-            y = 760 + row * 240
-            paste_center(img, self.bags[(k * 3) % 5], x, y + 10 * math.sin(t * 6 + k), scale=0.72)
-        if n == 0:
-            stamp_in(img, big_text('1966', 300, YEL), CX, 1100, t, t66)
-        else:
-            pop(img, C('1966', 120, bg=YEL), CX, 560, t, ts)
-        stamp_in(img, self.st, CX, 1720, t, self.tn())
-
-# ====================================================================== 8: plain toasted corn until nacho cheese in 1972
-class Nacho(Base):
-    def tu(self):
-        return self.we('until') - 0.06
-    def make_shakes(self):
-        return [(self.we('plain'), 12, 0.3), (self.tu(), 10, 0.25), (self.we('nacho'), 16, 0.35), (self.we('1972.') - 0.06, 22, 0.4)]
-    def events(self):
-        return [(0.02, 'swipe', 0.5), (self.we('plain') - 0.03, 'pop', 0.45), (self.we('toasted') - 0.03, 'sizzle', 0.4),
-                (self.tu(), 'riser', 0.45), (self.we('nacho') - 0.03, 'bigpop', 0.6), (self.we('1972.') - 0.06, 'boom', 0.55)]
-    def plate(self):
-        self.plain = chip_sprite(760, False, 2)
-        self.cheesy = chip_sprite(760, True, 2)
-        self.cheese = cheese_sprite(300)
-        self.st = stamp('1972', 150)
-        return wall_plate('#FFF1B8', '#C98A2A', 19, (CX, 1000, 1250))
-    def dyn(self, img, t):
-        tu, tn = self.tu(), self.we('nacho') - 0.08
-        ang = -5 + 6 * math.sin(t * 2.5)
-        cx, cy = CX, 1130 + 12 * math.sin(t * 4)
-        with_shadow(img, rot(self.plain, ang, 'np'), cx, cy, a=0.35, blur=20)
+        tn, tw, twr = self.tn(), self.we('but') - 0.06, self.we('wrong') - 0.06
         if t < tn:
-            pop(img, C('JUST TOASTED CORN', 84, bg=WHITE), CX, 560, t, self.we('plain') - 0.08)
-            if t > tu:
-                for k in range(30):
-                    ph = ((t - tu) * 1.8 + k / 30) % 1
-                    x = CX - 360 + (k * 97) % 720
-                    y = 680 + ph * 600
-                    ov = OV(img, x - 12, y - 12, x + 12, y + 12)
-                    ov.d.ellipse(ov.box(x - 9, y - 9, x + 9, y + 9), fill=(240, 120, 30, 230))
-                    ov.commit()
+            glow(img, CX, 1100, 480, (255, 220, 120), 0.5)
+            pop(img, big_text('SECRET?', 200, YEL), CX, 1100, t, 0.0, out_t=twr - 0.1)
+            pop(img, C('THEY TOLD STANLEY...', 80, bg=WHITE), CX, 560, t, self.we('told') - 0.08)
+            stamp_in(img, self.st, CX, 1100, t, twr)
             return
-        u = clamp01((t - tn) / 0.35)
-        sp = rot(self.cheesy, ang, 'nc')
-        if u < 1:
-            sp = sp.copy()
-            sp.putalpha(sp.getchannel('A').point(lambda v: int(v * u)))
-        paste_center(img, sp, cx, cy)
-        glow(img, cx, cy, 420, (255, 200, 80), 0.35 * u)
-        pop(img, self.cheese, CX + 330, 1580, t, tn + 0.05)
-        pop(img, C('NACHO CHEESE', 104, bg=(240, 120, 30), fg=WHITE), CX, 560, t, tn)
-        stamp_in(img, self.st, CX - 150, 1700, t, self.we('1972.') - 0.06)
+        if t < tw:
+            with_shadow(img, self.tent, CX, 1150, a=0.4)
+            pop(img, C('NOT CAMPERS', 100, bg=WHITE), CX, 560, t, tn)
+            red_x(img, CX, 1150, 300, clamp01((t - self.we('campers,')) / 0.3))
+            return
+        img.paste(self.p_w, (0, 0))
+        for k in range(6):
+            x = CX - 450 + k * 180
+            pop(img, self.cups[k], x + 30, 1640 + 12 * math.sin(t * 5 + k), t, tw + k * 0.03)
+        pop(img, C('WOMEN!', 150, bg=(236, 90, 140), fg=WHITE), CX, 600, t, tw, dur=0.2)
 
-# ====================================================================== 9: the name means little golden things
-class Golden(Base):
-    def make_shakes(self):
-        return [(self.we('name'), 10, 0.25), (self.we('little'), 14, 0.3), (self.we('Spanish.') - 0.1, 12, 0.3)]
-    def events(self):
-        ev = [(0.02, 'swipe', 0.5), (self.we('name') - 0.03, 'pop', 0.5), (self.we('little') - 0.03, 'chime', 0.6)]
-        for k in range(4):
-            ev.append((self.we('golden') + k * 0.12, 'ding', 0.25))
-        return ev
-    def plate(self):
-        self.chips = [chip_sprite(300, False, k + 30) for k in range(5)]
-        return wall_plate('#5A4A8A', '#1C1838', 9, (CX, 1000, 900))
-    def dyn(self, img, t):
-        tl = self.we('little') - 0.08
-        glow(img, CX, 1100, 500, (255, 220, 120), 0.45)
-        for k in range(5):
-            a = t * 0.8 + k * 2 * math.pi / 5
-            x, y = CX + math.cos(a) * 340, 1100 + math.sin(a) * 300
-            pop(img, rot(self.chips[k], (k * 72 + t * 40) % 360, ('gc', k)), x, y, t, 0.05 + k * 0.06)
-        for k in range(8):
-            ph = (t * 1.3 + k / 8) % 1
-            sparkle(img, CX - 420 + (k * 131) % 840, 760 + (k * 211) % 700, 30 * math.sin(math.pi * ph) + 4)
-        pop(img, C('THE NAME MEANS:', 84, bg=WHITE), CX, 560, t, 0.05, out_t=tl - 0.1)
-        if t > tl - 0.1:
-            pop(img, C('"LITTLE GOLDEN THINGS"', 72, bg=YEL), CX, 560, t, tl)
-        pop(img, C('IN SPANISH', 86, bg=WHITE), CX, 1720, t, self.we('Spanish.') - 0.1)
-
-# ====================================================================== 10: Frito-Lay can't confirm it... loop back to the hook
+# ====================================================================== 10: pretty wild... loop back to the hook
 class Outro(Hook):
     def tswitch(self):
-        return self.we('your') - 0.08
-    def tb(self):
-        return self.we('but') - 0.06
+        return self.we('few') - 0.08
+    def tst(self):
+        return 99.0
     def make_shakes(self):
-        return [(self.we("can't"), 14, 0.3), (self.tb(), 10, 0.25), (self.tswitch(), 12, 0.3)]
+        return [(self.we('wild,'), 14, 0.3), (self.tswitch(), 12, 0.3)]
     def events(self):
-        return [(0.02, 'swipe', 0.5), (self.we("can't") - 0.03, 'buzzer', 0.5), (self.we('Disneyland') - 0.03, 'pop', 0.4),
-                (self.tb(), 'riser', 0.45), (self.tswitch(), 'bigpop', 0.5)]
+        return [(0.02, 'swipe', 0.5), (self.we('wild,') - 0.03, 'bigpop', 0.5), (self.we('because') - 0.03, 'riser', 0.45),
+                (self.tswitch(), 'pop', 0.5)]
     def plate(self):
         Hook.plate(self)
-        self.hp = wall_plate('#FFD7A8', '#B8502A', 23, (CX, 1050, 1250))
-        self.cst = stamp("CAN'T CONFIRM", 104, angle=-7)
-        self.bag = bag_sprite(440, (214, 50, 44), 5)
+        self.hp = wall_plate('#FFD6E6', '#B0507E', 23, (CX, 1050, 1250))
+        self.cups = [cup_sprite(420, c) for c in CUP_COLS]
         return wall_plate('#D8D4F2', '#4E4A8A', 5, (CX, 1000, 1300))
     def dyn(self, img, t):
-        tw, tb = self.tswitch(), self.tb()
+        tw = self.tswitch()
         if t >= tw:
             img.paste(self.hp, (0, 0))
-            Hook.hero(self, img, t - tw)
+            Hook.hero(self, img, t - tw, flicker=False)
+            pop(img, C('A FEW YEARS EARLIER...', 76, bg=WHITE), CX, 1740, t, tw)
             return
-        if t < tb:
-            with_shadow(img, rot(self.bag, 4 * math.sin(t * 3), 'ob'), CX, 1100, a=0.4)
-            pop(img, C('FRITO-LAY', 104, bg=WHITE), CX, 560, t, 0.03)
-            for k in range(2):
-                pop(img, qmark(200, YEL), CX - 380 + 760 * k, 1000 + 15 * math.sin(t * 5 + k), t, self.we('Disneyland') - 0.08 + k * 0.1)
-            stamp_in(img, self.cst, CX, 1700, t, self.we("can't") - 0.05)
-            return
-        with_shadow(img, self.can, CX, 1300, a=0.4)
-        for k in range(3):
-            pop(img, qmark(170, WHITE if k % 2 else YEL), CX - 320 + k * 320, 820, t, tb + 0.1 + k * 0.1)
-        pop(img, C("BUT IF IT'S TRUE...", 92, bg=YEL), CX, 560, t, tb)
+        for k in range(6):
+            a = t * 0.9 + k * 2 * math.pi / 6
+            x, y = CX + math.cos(a) * 340, 1120 + math.sin(a) * 330
+            pop(img, self.cups[k], x + 30, y, t, 0.03 + k * 0.05)
+        pop(img, C('PRETTY WILD...', 100, bg=YEL), CX, 560, t, self.we('wild,') - 0.08)
     def cam(self, t):
         tw = self.tswitch()
         dx, dy, dr = self.shake(t)
@@ -702,4 +649,4 @@ class Outro(Hook):
         p = 1 - ease_out(t / 0.32)
         return 1.24 + 0.06 * clamp01(t / tw) + 0.1 * p, CX + dx, 1060 + dy, 2.0 * p + dr
 
-SCENES = [Hook, NoCheese, Billion, Casa, Toss, Salesman, Menu, ArchWest, Nacho, Golden, Outro]
+SCENES = [Hook, Saved, Question, Steel1913, SlowSales, Bought, SoldOut, OneHour, Sales, Secret, Outro]
