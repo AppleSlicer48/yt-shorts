@@ -1,21 +1,21 @@
 def W(s, spoken=None):
     return (s, spoken if spoken is not None else s)
 
-HOOK_TEXT = "DORITOS CAME\nFROM TRASH?!"
+HOOK_TEXT = "CROCS WERE\nBOAT SHOES?!"
 
 def ws(text):
     return [W(x) for x in text.split()]
 
 SENTENCES = [
-    ws("Doritos were born from Disneyland trash!"),
-    ws("And the first ones didn't even have cheese."),
-    ws("So how did trash turn into a billion-dollar chip?"),
-    ws("As the story goes, Disneyland had a Mexican restaurant called Casa de Fritos."),
-    ws("And the cooks kept throwing old tortillas in the trash."),
-    ws("Then a salesman from their tortilla supplier said: stop, cut them up and fry them!"),
-    ws("Guests loved them so much, the chips went on the menu."),
-    ws("A Frito-Lay boss named Arch West noticed, and by") + [W("1966,", "nineteen sixty six,")] + ws("they were sold nationwide."),
-    ws("But they were just plain toasted corn, until nacho cheese showed up in") + [W("1972.", "nineteen seventy two.")],
-    ws("Even the name means little golden things in Spanish."),
-    ws("Frito-Lay can't confirm the Disneyland part, but if it's true, your favorite chip started as..."),
+    ws("Crocs were invented as boat shoes!"),
+    ws("And a mom got ten million dollars just for filling the holes."),
+    ws("So how did a boat clog end up on everyone's feet?"),
+    ws("Three friends from Colorado found a foam clog made by a Canadian company."),
+    ws("It floated, it didn't slip, and the holes let air in and water out."),
+    ws("In") + [W("2002,", "two thousand two,")] + ws("they brought") + [W("200", "two hundred")] + ws("pairs to a Florida boat show, and every pair sold out."),
+    ws("Then a mom named Sheri started sticking charms in her kids' Crocs."),
+    ws("She turned it into a basement business called Jibbitz."),
+    ws("And in") + [W("2006,", "two thousand six,")] + ws("Crocs bought it for ten million dollars. Seriously."),
+    ws("Time magazine even called Crocs one of the") + [W("50", "fifty")] + ws("worst inventions."),
+    ws("But the holes made for boats became the fun part, and it all started because..."),
 ]
