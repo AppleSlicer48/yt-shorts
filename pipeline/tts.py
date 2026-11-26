@@ -29,6 +29,7 @@ for line in open(f'{K}/lexicon-us-en.txt', encoding='utf-8'):
         lex[p[0]] = ''.join(p[1:])
 
 MANUAL = {
+    'nutella': 'nutˈɛlə', 'ferrero': 'fəɹˈɛɹO', 'pietro': 'piˈAtɹO', 'supercrema': 'sˌupəɹkɹˈɛmə', 'michele': 'mikˈɛlA', 'hazelnuts': 'hˈAzəlnˌʌts', "everyone's": 'ˈɛvɹiwˌʌnz', "world's": 'wˈɜɹldz', 'ella': 'ˈɛlə',
     'crocs': 'kɹˈɑks', 'floated': 'flˈOɾɪd', 'sheri': 'ʃˈɛɹi', 'jibbitz': 'ʤˈɪbɪts', "kids'": 'kˈɪdz', 'clog': 'klˈɑɡ',
     'doritos': 'dəɹˈiɾOz', 'billion-dollar': 'bˈɪljən dˈɑləɹ', 'fritos': 'fɹˈiɾOz', 'tortillas': 'tɔɹtˈijəz', 'frito-lay': 'fɹˈiɾO lˈA', 'nacho': 'nˈɑʧO',
     'earle': 'ˈɜɹl', "dickson's": 'dˈɪksənz', 'dickson': 'dˈɪksən', 'accidents': 'ˈæksədᵊnts', "wife's": 'wˈIfs',

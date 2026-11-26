@@ -1,4 +1,4 @@
-"""Crocs Were Invented as Boat Shoes - scenes (cartoon people kit, detailed 2.5D settings)."""
+"""Nutella Used to Be a Brick - scenes (cartoon people kit, detailed 2.5D settings)."""
 import math
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
@@ -552,373 +552,886 @@ def bill_sprite(w=170):
     d.text((w * 0.43 * SS, w * 0.04 * SS), '$', font=font(int(w * 0.28 * SS)), fill=(60, 110, 50))
     return _down(im)
 
-# ---------------------------------------------------------------- 0  Crocs were invented as boat shoes!
-def s0_visual(img, t):
-    drop = clamp01(t / 0.5)
-    cy = 1200 + 60 * ease_out(drop) + math.sin(t * 4) * 14
-    rot = 42 - 14 * ease_out(drop) + math.sin(t * 3) * 3
-    ripples(img, CX - 20, 1700, t, 380)
-    put(img, clog(1120, GREEN), CX - 40, cy, 1.0, rot)
-    splash(img, CX - 20, 1600, t, 0.0, 22, 360)
-    splash(img, CX + 80, 1620, t, 0.55, 14, 240)
 
-class S0(Sc):
-    def events(self):
-        return [(self.we('invented') + 0.2, 'splat', 0.35), (self.we('boat') - 0.03, 'bloop', 0.6)]
-    def shots(self):
-        c = self.we('invented')
-        return [(0.0, 1.0, 1.04, CX, 1152), (c + 0.35, 1.3, 1.38, CX + 60, 1350)]
-    def plate(self):
-        return harbor_plate()
-    def dyn(self, img, t):
-        s0_visual(img, t)
-        P(img, TEEN, 1090, 2150, t, 'shocked', arm_l=150 + 10 * math.sin(t * 9), arm_r=40, scale=0.92, look_dir=-1)
+# ================================================================ NUTELLA props (generic, no logos)
+CHOC = (112, 66, 36)
+CHOC_TOP = (148, 92, 52)
+CHOC_CUT = (135, 82, 46)
+FOIL = (205, 210, 218)
 
-# ---------------------------------------------------------------- 1  And a mom got ten million dollars just for filling the holes.
-class S1(Sc):
-    def events(self):
-        e = [(0.05, 'pop', 0.4), (self.we('million'), 'cash', 0.8)]
-        for k in range(4):
-            e.append((self.ct(k), 'pop', 0.45))
-        return e
-    def ct(self, k):
-        a = self.we('mom')
-        b = self.we('holes')
-        return a + (b - a) * (k + 0.5) / 4
-    def shots(self):
-        return [(0.0, 1.0, 1.06, CX, 1152), (self.we('million'), 1.15, 1.22, CX, 1250), (self.we('filling'), 1.3, 1.4, CX + 120, 1500)]
-    def plate(self):
-        self.bill = bill_sprite()
-        self.cs = [charm_sprite(k, 44) for k in range(10)]
-        return kitchen_plate()
-    def dyn(self, img, t):
-        m = self.we('million')
-        filled = sum(1 for k in range(4) if t >= self.ct(k) + 0.18)
-        a = P(img, SHERI, CX - 260, 1720, t, 'happy' if t < m else 'shocked', talk=t < m and talk_frame(t),
-              arm_l=20 if t < m else 150, arm_r=115 + 25 * math.sin(t * 7), scale=0.95)
-        table_front(img, 1580)
-        cl = clog(760, PINK, filled)
-        cx0, cy0 = CX + 140 - cl.width / 2, 1500 - cl.height / 2
-        floor_shadow(img, CX + 140, 1640, 380, 0.35)
-        paste_at(img, cl, int(cx0), int(cy0))
-        for k in range(4):
-            t0 = self.ct(k)
-            if t0 - 0.4 <= t < t0 + 0.18:
-                u = clamp01((t - (t0 - 0.4)) / 0.58)
-                hx, hy = a['hand_r']
-                tx, ty = hole_pos(760, k)
-                tx += cx0
-                ty += cy0
-                put(img, self.cs[k], hx + (tx - hx) * ease_in_out(u), hy + (ty - hy) * ease_in_out(u) - 180 * math.sin(u * math.pi))
-        if t >= m:
-            u = t - m
-            for k in range(14):
-                ang = math.radians(-165 + k * 11)
-                sp = 520 + (k * 53) % 260
-                x = CX + math.cos(ang) * sp * min(u, 1.2)
-                y = 950 + math.sin(ang) * sp * min(u, 1.2) * 0.8 + 420 * u * u
-                put(img, self.bill, x, y, 1.0, (k * 47 + u * 200) % 360)
-
-# ---------------------------------------------------------------- 2  So how did a boat clog end up on everyone's feet?
-def feet_clogs(img, a, col, scale=0.9, charms=0):
-    fx, fy = a['feet']
-    w = int(220 * scale)
-    for sx in (-1, 1):
-        c = clog(w, col, charms, flip=(sx < 0))
-        paste_at(img, c, int(fx + sx * 60 * scale - w / 2), int(fy - c.height * 0.8))
-
-class S2(Sc):
-    def events(self):
-        return [(0.05, 'swipe', 0.3), (self.we('end') - 0.05, 'squeak', 0.5), (self.we('feet') - 0.05, 'pop', 0.5)]
-    def shots(self):
-        return [(0.0, 1.0, 1.06, CX, 1152), (self.we('end'), 1.5, 1.6, CX, 1750)]
-    def plate(self):
-        return hallway_plate()
-    def dyn(self, img, t):
-        walk = t * 120
-        crowd = [(KID1, 260, BLUE, 2, 1900, 0.78, walk * 0.4), (dict(PRESETS['boy'], hat=None, top=(200, 80, 80)), 1040, (250, 200, 60), 0, 1900, 0.8, -walk * 0.4),
-                 (TEEN, 640, PINK, 3, 2100, 0.95, 0)]
-        for k, (look, x, col, ch, fl, sc, dx) in enumerate(crowd):
-            isT = look is TEEN
-            sw = 25 * math.sin(t * 7 + k)
-            a = P(img, look, x + dx, fl, t, 'think' if isT else ('happy' if k == 0 else 'smile'), talk=isT and talk_frame(t),
-                  arm_l=20 + sw, arm_r=(150 if isT else 20 - sw), scale=sc, phase=k, bob=1.6)
-            feet_clogs(img, a, col, sc, ch)
-
-# ---------------------------------------------------------------- 3  Three friends from Colorado found a foam clog made by a Canadian company.
-def maple_box(w=300):
-    im, d = _ss(w, w * 0.8)
+_LOAF = {}
+def loaf(w=900, h=None, foil=True, cut_x=None):
+    """Solid hazelnut-cocoa loaf. front face + top + right side. foil wraps the left end."""
+    h = h or int(w * 0.95)
+    key = (w, h, foil)
+    if key in _LOAF:
+        return _LOAF[key]
+    im, d = _ss(w, h)
     s = SS
-    d.polygon([(0, w * 0.2 * s), (w * 0.75 * s, w * 0.2 * s), (w * s - 1, 0), (w * 0.25 * s, 0)], fill=(215, 175, 120))
-    d.rectangle([0, w * 0.2 * s, w * 0.75 * s, w * 0.8 * s - 1], fill=(195, 150, 95))
-    d.polygon([(w * 0.75 * s, w * 0.2 * s), (w * s - 1, 0), (w * s - 1, w * 0.6 * s), (w * 0.75 * s, w * 0.8 * s - 1)], fill=(160, 120, 75))
-    cx, cy, r = w * 0.37 * s, w * 0.5 * s, w * 0.17 * s
-    pts = []
-    for k in range(22):
-        a = -math.pi / 2 + k * 2 * math.pi / 22
-        rr = r * (1.0 if k % 2 == 0 else 0.55) * (0.75 if k in (5, 6, 16, 17) else 1)
-        pts.append((cx + math.cos(a) * rr, cy + math.sin(a) * rr))
-    d.polygon(pts, fill=(220, 40, 40))
-    d.rectangle([cx - r * 0.08, cy + r * 0.5, cx + r * 0.08, cy + r * 1.1], fill=(220, 40, 40))
+    dep = h * 0.2
+    fx1 = w * 0.86
+    rng = np.random.default_rng(7)
+    # top
+    d.polygon([(0, dep * s), (w * 0.14 * s, 0), (w * s, 0), (fx1 * s, dep * s)], fill=CHOC_TOP)
+    # right side
+    d.polygon([(fx1 * s, dep * s), (w * s, 0), (w * s, (h - dep) * s), (fx1 * s, h * s - 1)], fill=dk(CHOC, 0.78))
+    # front
+    d.rectangle([0, dep * s, fx1 * s, h * s - 1], fill=CHOC)
+    for k in range(260):
+        x = rng.uniform(0.02, 0.98) * fx1
+        y = rng.uniform(dep + 10, h - 10)
+        r = rng.uniform(3, 8)
+        d.ellipse([(x - r) * s, (y - r * 0.8) * s, (x + r) * s, (y + r * 0.8) * s], fill=(165, 110, 65) if k % 3 else (90, 50, 25))
+    # gloss
+    d.line([(w * 0.2 * s, dep * 0.45 * s), (w * 0.85 * s, dep * 0.45 * s)], fill=lt(CHOC_TOP, 0.35), width=int(10 * s))
+    d.line([(fx1 * 0.05 * s, (dep + 20) * s), (fx1 * 0.05 * s, (h - 30) * s)], fill=lt(CHOC, 0.2), width=int(8 * s))
+    if foil:
+        fw = w * 0.34
+        pts = [(0, dep * s - 6), (w * 0.14 * s, 0), ((w * 0.14 + fw) * s, 0)]
+        # crinkly right edge going down front
+        for k in range(12):
+            yy = dep + (h - dep) * k / 11
+            xx = fw + (14 if k % 2 else -10)
+            pts.append((xx * s, yy * s))
+        pts += [(0, h * s - 1)]
+        d.polygon(pts, fill=FOIL)
+        for k in range(18):
+            x0 = rng.uniform(0.02, 0.9) * fw
+            y0 = rng.uniform(dep, h)
+            d.line([(x0 * s, y0 * s), ((x0 + rng.uniform(-40, 40)) * s, (y0 + rng.uniform(20, 70)) * s)], fill=(235, 238, 245) if k % 2 else (160, 165, 175), width=int(4 * s))
+        d.polygon([(w * 0.14 * s, 0), ((w * 0.14 + fw) * s, 0), ((w * 0.12 + fw) * s, dep * 0.5 * s), (w * 0.07 * s, dep * 0.5 * s)], fill=(235, 238, 244))
+    out = _down(im)
+    _LOAF[key] = out
+    return out
+
+def slab_sprite(w=120, h=700):
+    """A cut slice seen from the side (thin block)."""
+    im, d = _ss(w + 40, h)
+    s = SS
+    d.polygon([(0, 30 * s), (40 * s, 0), ((w + 40) * s, 0), (w * s, 30 * s)], fill=CHOC_TOP)
+    d.rectangle([0, 30 * s, w * s, h * s - 1], fill=CHOC_CUT)
+    d.polygon([(w * s, 30 * s), ((w + 40) * s - 1, 0), ((w + 40) * s - 1, (h - 30) * s), (w * s, h * s - 1)], fill=dk(CHOC, 0.8))
+    rng = np.random.default_rng(3)
+    for k in range(40):
+        x, y, r = rng.uniform(6, w - 6), rng.uniform(40, h - 10), rng.uniform(3, 7)
+        d.ellipse([(x - r) * s, (y - r) * s, (x + r) * s, (y + r) * s], fill=(170, 115, 70))
     return _down(im)
 
-class S3(Sc):
-    def events(self):
-        return [(0.05, 'pop', 0.4), (self.we('found') - 0.05, 'rustle', 0.6), (self.we('Canadian') - 0.05, 'ding', 0.5)]
-    def shots(self):
-        f = self.we('found')
-        return [(0.0, 1.0, 1.05, CX, 1152), (f, 1.15, 1.22, CX, 1250), (self.we('Canadian'), 1.05, 1.1, CX, 1152)]
-    def plate(self):
-        img = cabin_plate()
-        floor_shadow(img, 1080, 1830, 220, 0.35)
-        put(img, maple_box(340), 1080, 1700, 1.0)
-        return img
-    def dyn(self, img, t):
-        f = self.we('found')
-        rv = t >= f
-        P(img, FRIEND_B, 250, 1990, t, 'shocked' if rv else 'smile', arm_l=20, arm_r=110 if rv else 50, scale=0.82, phase=1)
-        P(img, FRIEND_C, 1040, 2010, t, 'happy' if rv else 'think', arm_l=(140 if rv else 30) + 10 * math.sin(t * 8), arm_r=20, scale=0.82, phase=2)
-        up = clamp01((t - f) / 0.35)
-        a = P(img, FRIEND_A, 640, 2130, t, 'proud' if rv else 'smile', talk=talk_frame(t) and not rv, arm_l=20,
-              arm_r=40 + 120 * ease_out(up), scale=0.92)
-        hx, hy = a['hand_r']
-        put(img, clog(400, (250, 240, 225)), hx + 30, hy - 70 * up, 1.0, -10 + 10 * up)
-        chip_at(img, 'FOAM CREATIONS', CX, 700, t, self.we('Canadian') + 0.1, dot=(220, 40, 40))
-
-# ---------------------------------------------------------------- 4  It floated, it didn't slip, and the holes let air in and water out.
-class S4(Sc):
-    def events(self):
-        return [(0.05, 'bloop', 0.5), (self.we('slip') - 0.05, 'squeak', 0.6), (self.we('water') - 0.05, 'splat', 0.4)]
-    def shots(self):
-        return [(0.0, 1.0, 1.06, CX, 1152), (self.we('slip'), 1.15, 1.2, CX, 1500), (self.we('holes'), 1.3, 1.42, CX + 60, 1200)]
-    def plate(self):
-        self.cl = clog(900, BLUE)
-        return deck_plate()
-    def dyn(self, img, t):
-        s = self.we('slip')
-        h = self.we('holes')
-        if t < s:
-            y = 1150 + math.sin(t * 3.5) * 30
-            ripples(img, CX + 80, y + 230, t, 360)
-            put(img, self.cl, CX + 80, y, 1.0, math.sin(t * 2.5) * 5)
-        elif t < h:
-            u = t - s
-            d = ImageDraw.Draw(img)
-            for k in range(7):
-                x = 160 + k * 150
-                d.ellipse([x, 1975 - k * 6, x + 90, 1998 - k * 6], fill=(200, 230, 250))
-            put(img, self.cl, CX + 40, 1770 + 14 * math.sin(u * 22) * math.exp(-u * 3), 1.0, 0)
-        else:
-            u = t - h
-            y = 1180 + math.sin(t * 3) * 12
-            put(img, self.cl, CX + 40, y, 1.0, 0)
-            d = ImageDraw.Draw(img)
-            cx0 = CX + 40 - 450
-            cy0 = y - int(900 * 0.62) / 2
-            wt = self.we('water')
-            for k in range(10):
-                hx, hy = hole_pos(900, k)
-                hx += cx0
-                hy += cy0
-                if t < wt:
-                    for j in range(3):
-                        ph = (u * 1.6 + j / 3 + k * 0.13) % 1
-                        r = 8 + 10 * (1 - ph)
-                        yy = hy - 170 * (1 - ph)
-                        d.ellipse([hx - r, yy - r, hx + r, yy + r], outline=(255, 255, 255), width=4)
-                else:
-                    for j in range(4):
-                        ph = ((t - wt) * 2.2 + j / 4 + k * 0.11) % 1
-                        yy = hy + 40 + ph * 520
-                        d.ellipse([hx - 9, yy - 14, hx + 9, yy + 14], fill=(200, 235, 255))
-
-# ---------------------------------------------------------------- 5  In 2002, they brought 200 pairs to a Florida boat show, and every pair sold out.
-def booth_table(img):
-    d = ImageDraw.Draw(img)
-    d.rectangle([180, 1420, PW - 180, 1470], fill=(240, 240, 240))
-    d.rectangle([200, 1470, PW - 200, 1800], fill=(60, 120, 190))
-    d.rectangle([200, 1470, PW - 200, 1500], fill=(40, 90, 150))
-    floor_shadow(img, CX, 1820, 520, 0.35)
-
-class S5(Sc):
-    def events(self):
-        return [(0.05, 'pop', 0.4), (self.we('200') - 0.05, 'thud', 0.6), (self.we('sold'), 'cash', 0.8)]
-    def shots(self):
-        return [(0.0, 1.0, 1.05, CX, 1152), (self.we('Florida'), 1.1, 1.15, CX, 1250), (self.we('every'), 1.0, 1.06, CX, 1152)]
-    def plate(self):
-        self.cls = [clog(210, c) for c in CLOG_COLS]
-        return boatshow_plate()
-    def dyn(self, img, t):
-        e = self.we('every')
-        end = self.we('sold', 't1')
-        sel = t >= e
-        P(img, FRIEND_A, 430, 1560, t, 'shocked' if sel else 'happy', talk=talk_frame(t) and not sel, arm_l=30, arm_r=110 + 20 * math.sin(t * 6), scale=0.66)
-        P(img, FRIEND_C, 870, 1560, t, 'proud' if sel else 'smile', arm_l=150 if sel else 30, arm_r=150 if sel else 30, scale=0.66, phase=2)
-        booth_table(img)
-        n0 = 18
-        n = n0 if t < e else int(round(n0 * (1 - clamp01((t - e) / max(0.3, end - e)))))
-        for k in range(n):
-            row, col = divmod(k, 6)
-            put(img, self.cls[k % len(self.cls)], 300 + col * 140 + (row % 2) * 40, 1385 - row * 62, 0.8)
-        if sel:
-            P(img, SHOPPER1, 200, 2260, t, 'happy', arm_l=20, arm_r=150, scale=0.85, phase=1)
-            P(img, SHOPPER2, 1090, 2260, t, 'shocked', arm_l=160, arm_r=20, scale=0.85, phase=3)
-        chip_at(img, 'FORT LAUDERDALE', CX, 660, t, self.we('Florida'), dot=(60, 170, 230))
-
-# ---------------------------------------------------------------- 6  Then a mom named Sheri started sticking charms in her kids' Crocs.
-class S6(Sc):
-    def events(self):
-        e = [(0.05, 'pop', 0.4)]
-        for k in range(5):
-            e.append((self.ct(k), 'pop', 0.4))
-        return e
-    def ct(self, k):
-        a = self.we('started')
-        return a + (self.dur - 0.4 - a) * k / 5
-    def shots(self):
-        return [(0.0, 1.0, 1.05, CX, 1152), (self.we('charms'), 1.22, 1.3, CX + 60, 1450), (self.we('kids'), 1.05, 1.1, CX, 1200)]
-    def plate(self):
-        self.cs = [charm_sprite(k, 36) for k in range(10)]
-        return kitchen_plate()
-    def dyn(self, img, t):
-        P(img, KID1, 1090, 1880, t, 'happy' if t > self.ct(1) else 'smile', arm_l=140 + 15 * math.sin(t * 9), arm_r=20, scale=0.85, phase=1)
-        a = P(img, SHERI, 560, 1760, t, 'happy', talk=False, arm_l=20, arm_r=110 + 20 * math.sin(t * 6), scale=0.95)
-        P(img, KID2, 210, 1880, t, 'shocked' if t > self.ct(2) else 'smile', arm_l=20, arm_r=140, scale=0.85, phase=2)
-        table_front(img, 1620)
-        filled = sum(1 for k in range(5) if t >= self.ct(k) + 0.25)
-        c1 = clog(520, BLUE, filled)
-        c2 = clog(460, PINK, max(0, filled - 2), flip=True)
-        x1, y1 = 800, 1560
-        put(img, c2, 330, 1590)
-        paste_at(img, c1, int(x1 - c1.width / 2), int(y1 - c1.height / 2))
-        for k in range(5):
-            t0 = self.ct(k)
-            if t0 - 0.2 <= t < t0 + 0.25:
-                u = clamp01((t - (t0 - 0.2)) / 0.45)
-                hx, hy = a['hand_r']
-                tx, ty = hole_pos(520, k)
-                tx += x1 - c1.width / 2
-                ty += y1 - c1.height / 2
-                put(img, self.cs[k], hx + (tx - hx) * ease_in_out(u), hy + (ty - hy) * ease_in_out(u) - 120 * math.sin(u * math.pi))
-
-# ---------------------------------------------------------------- 7  She turned it into a basement business called Jibbitz.
-class S7(Sc):
-    def events(self):
-        return [(0.05, 'thud', 0.4), (self.we('business') - 0.05, 'rattle', 0.5), (self.we('Jibbitz') - 0.05, 'ding', 0.6)]
-    def shots(self):
-        return [(0.0, 1.0, 1.06, CX, 1152), (self.we('business'), 1.2, 1.28, CX + 60, 1400)]
-    def plate(self):
-        self.cs = [charm_sprite(k, 26) for k in range(10)]
-        return basement_plate()
-    def dyn(self, img, t):
-        j = self.we('Jibbitz')
-        P(img, GRANDPA, 1010, 1800, t, 'happy', arm_l=110 + 20 * math.sin(t * 8), arm_r=100, scale=0.8, phase=2)
-        P(img, SHERI, 420, 1820, t, 'proud' if t > j else 'happy', talk=talk_frame(t) and t < j,
-          arm_l=(160 if t > j else 100) + 10 * math.sin(t * 7), arm_r=100, scale=0.95)
-        table_front(img, 1580, (120, 120, 130), (200, 200, 205))
-        d = ImageDraw.Draw(img)
-        for k in range(3):
-            bx = 180 + k * 330
-            d.rounded_rectangle([bx, 1480, bx + 260, 1620], 16, fill=[(250, 200, 60), (120, 200, 240), (240, 120, 170)][k], outline=(80, 80, 90), width=5)
-        for q in range(24):
-            put(img, self.cs[q % 10], 210 + (q % 8) * 115 + (q // 8) * 12, 1465 + (q // 8) * 18 - (q % 3) * 8)
-        for q in range(5):
-            ph = (t * 0.7 + q / 5) % 1
-            x = 60 + ph * 1100
-            d.rounded_rectangle([x, 1720, x + 110, 1860], 10, fill=(250, 250, 255), outline=(170, 170, 180), width=4)
-            put(img, self.cs[(q * 3) % 10], x + 55, 1790)
-        chip_at(img, '2005', 1080, 700, t, self.we('business'), dot=(250, 200, 60))
-
-# ---------------------------------------------------------------- 8  And in 2006, Crocs bought it for ten million dollars. Seriously.
-class S8(Sc):
-    def events(self):
-        return [(0.05, 'pop', 0.4), (self.we('bought') - 0.03, 'thud', 0.6), (self.we('million'), 'cash', 0.9), (self.we('Seriously') - 0.05, 'party', 0.4)]
-    def shots(self):
-        return [(0.0, 1.0, 1.05, CX, 1152), (self.we('bought'), 1.12, 1.18, CX, 1300), (self.we('Seriously'), 1.25, 1.32, CX - 160, 1150)]
-    def plate(self):
-        self.bill = bill_sprite(150)
-        return office_plate()
-    def dyn(self, img, t):
-        b = self.we('bought')
-        m = self.we('million')
-        se = self.we('Seriously')
-        a = P(img, EXEC, 920, 2000, t, 'smile', talk=talk_frame(t) and b < t < m, arm_l=40 + 60 * clamp01((t - b) / 0.4), arm_r=20, scale=0.92, phase=1)
-        expr = 'smile' if t < m else ('shocked' if t < se else 'happy')
-        arms = 150 if t >= se else (30 if t < m else 70)
-        P(img, SHERI, 360, 2000, t, expr, arm_l=arms + 8 * math.sin(t * 9), arm_r=arms + 8 * math.sin(t * 9 + 1), scale=0.95)
-        hx, hy = a['hand_l']
-        d = ImageDraw.Draw(img)
-        k = clamp01((t - b) / 0.6)
-        bx = (hx - 60) + (650 - hx + 60) * ease_in_out(k) if t < m else 650
-        by = 1760
-        d.rounded_rectangle([bx - 150, by - 100, bx + 150, by + 100], 18, fill=(110, 70, 40), outline=(60, 35, 20), width=8)
-        d.rectangle([bx - 40, by - 135, bx + 40, by - 100], outline=(60, 35, 20), width=12)
-        if t >= m:
-            u = t - m
-            d.rectangle([bx - 140, by - 200, bx + 140, by - 100], fill=(90, 55, 30))
-            for q in range(4):
-                put(img, self.bill, bx - 90 + q * 60, by - 120 - q * 8, 1.0, -10 + q * 6)
-            for q in range(10):
-                ang = math.radians(-150 + q * 13)
-                put(img, self.bill, bx + math.cos(ang) * 600 * min(u, 1), by - 100 + math.sin(ang) * 700 * min(u, 1) + 500 * u * u, 1.0, (q * 61 + u * 240) % 360)
-        chip_at(img, '+ UP TO $10M MORE', CX, 660, t, se - 0.1, dot=(60, 170, 90))
-
-# ---------------------------------------------------------------- 9  Time magazine even called Crocs one of the 50 worst inventions.
-def magazine(w=520):
+_JAR = {}
+def jar(w=300, lid=True, level=1.0):
+    key = (w, lid, level)
+    if key in _JAR:
+        return _JAR[key]
     h = int(w * 1.3)
     im, d = _ss(w, h)
     s = SS
-    d.rectangle([0, 0, w * s - 1, h * s - 1], fill=(250, 248, 240), outline=(60, 60, 70), width=8)
-    d.rectangle([20 * s, 20 * s, (w - 20) * s, 120 * s], fill=(40, 50, 70))
-    for k in range(3):
-        d.rectangle([40 * s, (h - 150 + k * 36) * s, (w - 160 + k * 30) * s, (h - 130 + k * 36) * s], fill=(150, 150, 160))
-    c = clog(int(w * 0.75), GREEN)
-    im.alpha_composite(c.resize((c.width * s, c.height * s)), (int(w * 0.12 * s), int(h * 0.3 * s)))
-    d.line([(w * 0.18 * s, h * 0.26 * s), (w * 0.82 * s, h * 0.72 * s)], fill=(220, 40, 40), width=34)
-    d.line([(w * 0.82 * s, h * 0.26 * s), (w * 0.18 * s, h * 0.72 * s)], fill=(220, 40, 40), width=34)
+    lh = h * 0.18
+    body = [w * 0.04 * s, lh * 0.85 * s, w * 0.96 * s, h * s - 1]
+    d.rounded_rectangle(body, int(w * 0.16 * s), fill=(225, 235, 240))
+    top = lh * 0.85 + (h - lh * 0.85) * (1 - level) + 12
+    if level > 0:
+        d.rounded_rectangle([w * 0.08 * s, min(top, h - 40) * s, w * 0.92 * s, (h - 8) * s], int(min(w * 0.13, (h - 8 - min(top, h - 40)) / 2 - 1) * s), fill=(95, 55, 28))
+    # label (generic: hazelnut + bread drawing, no text)
+    ly0, ly1 = h * 0.42, h * 0.80
+    d.rectangle([w * 0.04 * s, ly0 * s, w * 0.96 * s, ly1 * s], fill=(250, 248, 242))
+    d.rectangle([w * 0.04 * s, ly0 * s, w * 0.96 * s, (ly0 + 10) * s], fill=(200, 60, 50))
+    d.rectangle([w * 0.04 * s, (ly1 - 10) * s, w * 0.96 * s, ly1 * s], fill=(200, 60, 50))
+    cx, cy = w * 0.38, (ly0 + ly1) / 2
+    d.rounded_rectangle([(cx - w * 0.2) * s, (cy - w * 0.12) * s, (cx + w * 0.12) * s, (cy + w * 0.16) * s], int(w * 0.05 * s), fill=(225, 175, 105))
+    d.rounded_rectangle([(cx - w * 0.16) * s, (cy - w * 0.08) * s, (cx + w * 0.08) * s, (cy + w * 0.12) * s], int(w * 0.04 * s), fill=(110, 62, 32))
+    hx, hy = w * 0.68, cy
+    d.ellipse([(hx - w * 0.11) * s, (hy - w * 0.09) * s, (hx + w * 0.11) * s, (hy + w * 0.12) * s], fill=(170, 105, 55))
+    d.chord([(hx - w * 0.11) * s, (hy - w * 0.02) * s, (hx + w * 0.11) * s, (hy + w * 0.14) * s], 0, 180, fill=(215, 175, 125))
+    # glass shine
+    d.rounded_rectangle([w * 0.12 * s, (lh + 10) * s, w * 0.2 * s, (ly0 - 8) * s], int(6 * s), fill=(255, 255, 255, 170))
+    if lid:
+        d.rounded_rectangle([0, 0, w * s - 1, lh * s], int(w * 0.06 * s), fill=(250, 250, 250), outline=(205, 205, 210), width=int(3 * s))
+        for k in range(1, 14):
+            x = w * k / 14 * s
+            d.line([(x, 6 * s), (x, (lh - 6) * s)], fill=(220, 220, 226), width=int(2 * s))
+    out = _down(im)
+    _JAR[key] = out
+    return out
+
+_NUT = {}
+def nut(r=40, rot=0):
+    key = (r, rot)
+    if key in _NUT:
+        return _NUT[key]
+    im, d = _ss(r * 2.4, r * 2.6)
+    s = SS
+    cx, cy = r * 1.2 * s, r * 1.35 * s
+    R = r * s
+    d.ellipse([cx - R, cy - R * 0.95, cx + R, cy + R * 1.05], fill=(165, 100, 50))
+    d.polygon([(cx - R * 0.45, cy - R * 0.75), (cx, cy - R * 1.3), (cx + R * 0.45, cy - R * 0.75)], fill=(165, 100, 50))
+    d.chord([cx - R, cy - R * 0.05, cx + R, cy + R * 1.05], 0, 180, fill=(220, 180, 130))
+    for k in range(6):
+        x = cx - R * 0.7 + k * R * 0.28
+        d.line([(x, cy + R * 0.2), (x + R * 0.05, cy + R * 0.9)], fill=(190, 150, 100), width=max(2, int(R * 0.06)))
+    d.ellipse([cx - R * 0.55, cy - R * 0.7, cx - R * 0.15, cy - R * 0.3], fill=(205, 145, 90))
+    out = _down(im)
+    if rot:
+        out = out.rotate(rot, resample=Image.BICUBIC, expand=True)
+    _NUT[key] = out
+    return out
+
+def nut_d(d, x, y, r, seed=0):
+    """Fast inline hazelnut for heaps."""
+    c = [(165, 100, 50), (150, 90, 45), (180, 112, 58)][seed % 3]
+    d.ellipse([x - r, y - r * 0.9, x + r, y + r], fill=c)
+    d.chord([x - r, y, x + r, y + r], 0, 180, fill=(215, 172, 120))
+    d.ellipse([x - r * 0.5, y - r * 0.65, x - r * 0.15, y - r * 0.3], fill=lt(c, 0.3))
+
+def bread(w=300, spread=0.0, slab=False):
+    h = int(w * 0.9)
+    im, d = _ss(w, h)
+    s = SS
+    crust = (190, 125, 60)
+    d.rounded_rectangle([0, h * 0.25 * s, w * s - 1, h * s - 1], int(w * 0.08 * s), fill=crust)
+    d.ellipse([0, 0, w * 0.55 * s, h * 0.55 * s], fill=crust)
+    d.ellipse([w * 0.45 * s, 0, w * s - 1, h * 0.55 * s], fill=crust)
+    m = w * 0.07
+    d.rounded_rectangle([m * s, h * 0.27 * s, (w - m) * s, (h - m) * s], int(w * 0.06 * s), fill=(245, 220, 165))
+    d.ellipse([m * s, m * s, (w * 0.55 - m * 0.3) * s, h * 0.5 * s], fill=(245, 220, 165))
+    d.ellipse([(w * 0.45 + m * 0.3) * s, m * s, (w - m) * s, h * 0.5 * s], fill=(245, 220, 165))
+    if slab:
+        d.rounded_rectangle([w * 0.16 * s, h * 0.3 * s, w * 0.84 * s, h * 0.8 * s], int(10 * s), fill=CHOC_CUT, outline=dk(CHOC, 0.8), width=int(4 * s))
+        rng = np.random.default_rng(1)
+        for k in range(14):
+            x, y = rng.uniform(0.2, 0.8) * w, rng.uniform(0.35, 0.75) * h
+            d.ellipse([(x - 5) * s, (y - 4) * s, (x + 5) * s, (y + 4) * s], fill=(175, 118, 72))
+    if spread > 0:
+        pts = []
+        for k in range(28):
+            a = 2 * math.pi * k / 28
+            rr = 1 + 0.08 * math.sin(a * 5)
+            pts.append((w * 0.5 * s + math.cos(a) * w * 0.36 * spread * rr * s, h * 0.55 * s + math.sin(a) * h * 0.3 * spread * rr * s))
+        d.polygon(pts, fill=(105, 60, 30))
+        d.arc([w * 0.3 * s, h * 0.4 * s, w * 0.7 * s, h * 0.7 * s], 200, 320, fill=(150, 95, 55), width=int(6 * s))
     return _down(im)
 
-class S9(Sc):
-    def events(self):
-        return [(0.05, 'rustle', 0.5), (self.we('worst') - 0.05, 'buzzer', 0.35)]
-    def shots(self):
-        return [(0.0, 1.0, 1.05, CX, 1152), (self.we('called'), 1.15, 1.22, CX + 120, 1250), (self.we('worst'), 1.28, 1.36, CX - 140, 1100)]
-    def plate(self):
-        self.mag = magazine(460)
-        return living_plate()
-    def dyn(self, img, t):
-        w = self.we('worst')
-        a = P(img, FRIEND_A, 880, 2080, t, 'angry' if t > w else 'nervous', arm_l=115, arm_r=20, scale=0.95, phase=1)
-        P(img, TEEN, 320, 2130, t, 'shocked' if t > self.we('called') else 'think', arm_l=20, arm_r=150 if t > w else 40, scale=0.9, phase=2, look_dir=1)
-        hx, hy = a['hand_l']
-        put(img, self.mag, hx - 110, hy - 250, 1.0, 6 + 2 * math.sin(t * 3))
-        chip_at(img, '2010', CX - 140, 640, t, self.we('magazine') + 0.2, dot=(220, 40, 40))
+def knife(L=520):
+    im, d = _ss(L, L * 0.18)
+    s = SS
+    hh = L * 0.18
+    d.rounded_rectangle([0, hh * 0.3 * s, L * 0.32 * s, hh * 0.8 * s], int(10 * s), fill=(45, 40, 40))
+    for k in range(3):
+        x = L * (0.07 + k * 0.09)
+        d.ellipse([(x - 6) * s, (hh * 0.55 - 6) * s, (x + 6) * s, (hh * 0.55 + 6) * s], fill=(200, 200, 205))
+    d.polygon([(L * 0.32 * s, hh * 0.2 * s), (L * s - 1, hh * 0.55 * s), (L * 0.32 * s, hh * 0.95 * s)], fill=(215, 220, 228))
+    d.line([(L * 0.32 * s, hh * 0.3 * s), (L * 0.95 * s, hh * 0.55 * s)], fill=(250, 252, 255), width=int(4 * s))
+    return _down(im)
 
-# ---------------------------------------------------------------- 10  But the holes made for boats became the fun part, and it all started because...
-class S10(Sc):
+def bowl(w=620, fill=0.0, swirl=0.0):
+    h = int(w * 0.62)
+    im, d = _ss(w, h)
+    s = SS
+    d.chord([0, -h * 0.55 * s, w * s - 1, h * s - 1], 0, 180, fill=(235, 238, 242))
+    d.chord([w * 0.08 * s, -h * 0.4 * s, w * 0.92 * s, h * 0.9 * s], 30, 150, fill=(215, 220, 228))
+    d.rectangle([w * 0.1 * s, h * 0.55 * s, w * 0.9 * s, h * 0.6 * s], fill=(90, 150, 210))
+    d.ellipse([0, 0, w * s - 1, h * 0.3 * s], fill=(205, 210, 218))
+    if fill > 0:
+        d.ellipse([w * 0.06 * s, h * 0.03 * s, w * 0.94 * s, h * 0.27 * s], fill=(150, 95, 50) if swirl == 0 else (105, 62, 32))
+    d.ellipse([0, 0, w * s - 1, h * 0.3 * s], outline=(250, 250, 252), width=int(8 * s))
+    return _down(im)
+
+def sparkle(d, x, y, r, col=(255, 240, 150)):
+    d.polygon([(x, y - r), (x + r * 0.22, y - r * 0.22), (x + r, y), (x + r * 0.22, y + r * 0.22), (x, y + r), (x - r * 0.22, y + r * 0.22), (x - r, y), (x - r * 0.22, y - r * 0.22)], fill=col)
+
+def heart_d(d, cx, cy, r, col=(240, 80, 120)):
+    d.ellipse([cx - r * 0.95, cy - r * 0.75, cx + r * 0.05, cy + r * 0.25], fill=col)
+    d.ellipse([cx - r * 0.05, cy - r * 0.75, cx + r * 0.95, cy + r * 0.25], fill=col)
+    d.polygon([(cx - r * 0.9, cy - r * 0.15), (cx + r * 0.9, cy - r * 0.15), (cx, cy + r * 0.95)], fill=col)
+
+# ================================================================ NUTELLA plates
+def subway_wall(d, y1, base=(245, 242, 235), line=(205, 200, 192), tw=120, th=60):
+    for y in range(0, y1, th):
+        off = (y // th % 2) * tw // 2
+        for x in range(-off, PW, tw):
+            d.rectangle([x + 2, y + 2, x + tw - 2, y + th - 2], fill=base, outline=line, width=3)
+
+def shelf(d, x0, x1, y, items, col=(150, 105, 65)):
+    d.rectangle([x0, y, x1, y + 22], fill=col)
+    d.rectangle([x0, y + 22, x1, y + 34], fill=dk(col, 0.7))
+    x = x0 + 20
+    for (iw, ih, c, kind) in items:
+        if x + iw > x1 - 10:
+            break
+        if kind == 'jar':
+            d.rounded_rectangle([x, y - ih, x + iw, y], 10, fill=c)
+            d.rectangle([x - 4, y - ih - 18, x + iw + 4, y - ih + 4], fill=(240, 240, 240))
+        elif kind == 'tin':
+            d.rectangle([x, y - ih, x + iw, y], fill=c, outline=dk(c, 0.7), width=4)
+            d.rectangle([x, y - ih * 0.65, x + iw, y - ih * 0.35], fill=lt(c, 0.6))
+        elif kind == 'box':
+            d.rectangle([x, y - ih, x + iw, y], fill=c, outline=dk(c, 0.7), width=4)
+            d.ellipse([x + iw * 0.25, y - ih * 0.7, x + iw * 0.75, y - ih * 0.3], fill=lt(c, 0.5))
+        elif kind == 'plant':
+            d.rectangle([x, y - ih * 0.4, x + iw, y], fill=(200, 110, 70))
+            for a in range(-50, 60, 25):
+                r = math.radians(a - 90)
+                d.ellipse([x + iw / 2 + math.cos(r) * iw * 0.6 - 18, y - ih * 0.4 + math.sin(r) * ih * 0.6 - 30, x + iw / 2 + math.cos(r) * iw * 0.6 + 18, y - ih * 0.4 + math.sin(r) * ih * 0.6 + 30], fill=(70, 150, 80))
+        x += iw + 22
+
+@cached
+def counter_plate(variant=0):
+    base = [(245, 242, 235), (232, 240, 236)][variant]
+    im = Image.new('RGBA', (PW, PH), base)
+    d = ImageDraw.Draw(im)
+    subway_wall(d, 1500, base, dk(base, 0.85))
+    if variant == 0:
+        window(d, 820, 640, 1230, 1100, 'mountains', (255, 255, 255))
+        shelf(d, 0, 700, 900, [(90, 140, (230, 170, 80), 'jar'), (80, 110, (200, 80, 70), 'jar'), (140, 170, (120, 170, 210), 'tin'),
+                                (100, 120, (240, 210, 120), 'jar'), (120, 160, (90, 160, 100), 'plant')])
+        d.rectangle([60, 1100, 640, 1120], fill=(120, 120, 125))
+        for k, L in enumerate((170, 210, 150, 190)):
+            x = 110 + k * 130
+            d.line([(x, 1120), (x, 1120 + L * 0.3)], fill=(90, 90, 95), width=6)
+            d.ellipse([x - 26, 1120 + L * 0.3, x + 26, 1120 + L * 0.3 + 70], fill=[(200, 90, 60), (90, 90, 95), (220, 170, 70), (110, 160, 200)][k])
+    else:
+        shelf(d, 80, 1220, 820, [(110, 150, (210, 170, 110), 'tin'), (90, 120, (190, 80, 70), 'jar'), (130, 160, (240, 220, 180), 'box'),
+                                  (100, 130, (230, 180, 90), 'jar'), (110, 150, (150, 110, 80), 'tin'), (120, 170, (90, 160, 100), 'plant'), (90, 120, (180, 60, 60), 'jar')])
+        shelf(d, 80, 1220, 1180, [(140, 200, (235, 230, 220), 'box'), (100, 140, (200, 150, 90), 'jar'), (100, 130, (160, 200, 230), 'tin'),
+                                   (120, 160, (240, 200, 120), 'box'), (90, 120, (220, 120, 80), 'jar'), (110, 150, (190, 170, 140), 'tin')])
+    return finish_plate(im, 0.35, 21 + variant)
+
+def counter_front(img, y, top=(225, 222, 215), front=(95, 130, 150)):
+    d = ImageDraw.Draw(img)
+    d.rectangle([-20, y, PW + 20, y + 60], fill=top)
+    d.line([(-20, y), (PW + 20, y)], fill=(250, 250, 250), width=6)
+    d.rectangle([-20, y + 60, PW + 20, PH], fill=front)
+    for x in range(0, PW + 1, 324):
+        d.rectangle([x + 18, y + 90, x + 306, PH - 20], outline=dk(front, 0.8), width=6)
+        d.rounded_rectangle([x + 140, y + 130, x + 184, y + 146], 6, fill=(210, 210, 215))
+
+def board(img, cx, y, w=1000):
+    d = ImageDraw.Draw(img)
+    floor_shadow(img, cx, y + 70, w * 0.6, 0.3)
+    d.rounded_rectangle([cx - w / 2, y - 10, cx + w / 2, y + 45], 18, fill=(200, 150, 95), outline=(150, 105, 60), width=5)
+
+@cached
+def shop_plate():
+    im = Image.new('RGBA', (PW, PH), (235, 220, 190))
+    d = ImageDraw.Draw(im)
+    for x in range(0, PW, 64):
+        d.rectangle([x, 0, x + 30, 1500], fill=(228, 210, 178))
+    d.rectangle([40, 160, PW - 40, 1520], fill=(130, 88, 52))
+    rows = [380, 680, 980, 1280]
+    rng = np.random.default_rng(11)
+    palette = [(200, 70, 60), (70, 120, 170), (230, 190, 80), (110, 150, 90), (235, 225, 205), (180, 120, 70)]
+    for r, y in enumerate(rows):
+        items = []
+        for k in range(14):
+            kind = ['tin', 'jar', 'box'][int(rng.integers(0, 3))]
+            items.append((int(rng.integers(70, 110)), int(rng.integers(120, 220)), palette[int(rng.integers(0, 6))], kind))
+        if r == 1:
+            # the empty cocoa/chocolate gap in the middle row
+            shelf(d, 60, 470, y, items[:4], (160, 112, 70))
+            shelf(d, 470, 830, y, [], (160, 112, 70))
+            shelf(d, 830, PW - 60, y, items[4:8], (160, 112, 70))
+        else:
+            shelf(d, 60, PW - 60, y, items, (160, 112, 70))
+    d.line([(CX, 0), (CX, 90)], fill=(40, 40, 40), width=6)
+    d.polygon([(CX - 90, 150), (CX + 90, 150), (CX + 50, 90), (CX - 50, 90)], fill=(60, 110, 80))
+    for k in range(9):
+        x = k * 150
+        d.rectangle([x, 1520, x + 150, PH], fill=(225, 215, 195) if k % 2 == 0 else (120, 90, 70))
+    for y in range(1520, PH, 140):
+        d.line([(0, y), (PW, y)], fill=(90, 70, 55), width=3)
+    return finish_plate(im, 0.4, 31)
+
+def shop_counter(img, y=1560):
+    d = ImageDraw.Draw(img)
+    d.rectangle([-20, y, PW + 20, y + 50], fill=(170, 120, 75))
+    d.rectangle([-20, y + 50, PW + 20, PH], fill=(120, 80, 45))
+    for x in range(0, PW, 108):
+        d.line([(x, y + 50), (x, PH)], fill=(95, 62, 35), width=5)
+    # scale
+    d.rectangle([900, y - 30, 1160, y], fill=(80, 80, 85))
+    d.rectangle([1010, y - 160, 1050, y - 30], fill=(80, 80, 85))
+    d.chord([900, y - 220, 1160, y - 120], 0, 180, fill=(190, 160, 60))
+    d.ellipse([985, y - 300, 1075, y - 210], fill=(245, 245, 240), outline=(80, 80, 85), width=6)
+
+@cached
+def street_plate():
+    arr = vgrad(PW, PH, [(0, '#7CC5EE'), (0.35, '#D6F0FB'), (1, '#D6F0FB')])
+    im = to_img(arr).convert('RGBA')
+    d = ImageDraw.Draw(im)
+    d.polygon([(0, 760), (300, 600), (650, 720), (980, 580), (PW, 700), (PW, 1000), (0, 1000)], fill=(120, 170, 110))
+    for k in range(10):
+        x = 60 + k * 130
+        d.line([(x, 760 - (k % 3) * 30), (x, 820)], fill=(90, 120, 70), width=6)
+        for j in range(6):
+            d.ellipse([x - 40 + j * 14, 700 - (k % 3) * 30 + (j % 2) * 20, x - 10 + j * 14, 730 - (k % 3) * 30 + (j % 2) * 20], fill=(80, 140, 80))
+    # buildings left and right
+    for (x0, x1, top, col) in ((-20, 360, 420, (235, 180, 120)), (PW - 380, PW + 20, 360, (230, 160, 110)), (330, 520, 640, (240, 215, 170))):
+        d.rectangle([x0, top, x1, 1600], fill=col)
+        d.polygon([(x0 - 20, top), (x1 + 20, top), ((x0 + x1) / 2, top - 70)], fill=(185, 90, 60))
+        for wy in range(top + 80, 1400, 230):
+            for wx in range(int(x0) + 50, int(x1) - 90, 150):
+                d.rectangle([wx, wy, wx + 90, wy + 140], fill=(70, 60, 60))
+                d.rectangle([wx - 34, wy, wx, wy + 140], fill=(70, 130, 90))
+                d.rectangle([wx + 90, wy, wx + 124, wy + 140], fill=(70, 130, 90))
+    # market stall awning
+    d.rectangle([400, 1000, 900, 1040], fill=(120, 80, 45))
+    for k in range(8):
+        x0 = 380 + k * 70
+        d.polygon([(x0, 900), (x0 + 70, 900), (x0 + 70, 1010), (x0 + 35, 1050), (x0, 1010)], fill=(220, 70, 60) if k % 2 == 0 else (250, 245, 235))
+    d.line([(410, 1040), (410, 1650)], fill=(120, 80, 45), width=16)
+    d.line([(890, 1040), (890, 1650)], fill=(120, 80, 45), width=16)
+    # cobblestones
+    d.rectangle([0, 1600, PW, PH], fill=(150, 140, 130))
+    rng = np.random.default_rng(4)
+    y, g = 1600, 40
+    while y < PH:
+        x = -rng.uniform(0, 60)
+        while x < PW:
+            w = g * 2.2
+            d.rounded_rectangle([x + 4, y + 4, x + w - 4, y + g - 4], 10, fill=(175 + int(rng.integers(-12, 12)), 165, 152))
+            x += w
+        y += g
+        g *= 1.15
+    return finish_plate(im, 0.35, 41)
+
+def stall_table(img, y=1500, empty=True):
+    d = ImageDraw.Draw(img)
+    d.rectangle([300, y, 1000, y + 40], fill=(170, 120, 75))
+    d.rectangle([320, y + 40, 980, y + 300], fill=(140, 95, 55))
+    for k in range(3):
+        bx = 340 + k * 220
+        d.rectangle([bx, y - 110, bx + 190, y], fill=(200, 160, 105), outline=(140, 100, 60), width=6)
+        if k == 1:
+            for j in range(5):
+                d.ellipse([bx + 70 + j * 10, y - 130 + (j % 2) * 6, bx + 90 + j * 10, y - 116 + (j % 2) * 6], fill=(95, 55, 30))
+        elif k == 0:
+            for j in range(9):
+                d.ellipse([bx + 15 + j * 18, y - 140 - (j % 3) * 10, bx + 55 + j * 18, y - 100 - (j % 3) * 10], fill=(230, 90, 60))
+        else:
+            for j in range(8):
+                d.ellipse([bx + 15 + j * 20, y - 140 - (j % 2) * 12, bx + 55 + j * 20, y - 100 - (j % 2) * 12], fill=(240, 200, 70))
+
+@cached
+def pastry_plate():
+    im = Image.new('RGBA', (PW, PH), (250, 225, 225))
+    d = ImageDraw.Draw(im)
+    for x in range(0, PW, 100):
+        d.rectangle([x, 0, x + 50, 1450], fill=(246, 214, 214))
+    d.rectangle([0, 0, PW, 140], fill=(120, 60, 70))
+    for k in range(10):
+        x0 = k * 130
+        d.chord([x0, 80, x0 + 130, 220], 0, 180, fill=(250, 245, 235) if k % 2 else (200, 80, 90))
+    # back shelves with cakes
+    for y in (720, 1060):
+        d.rectangle([60, y, PW - 60, y + 24], fill=(250, 250, 250))
+        for k in range(5):
+            cx = 180 + k * 235
+            d.rectangle([cx - 80, y - 110, cx + 80, y], fill=[(250, 220, 160), (240, 160, 180), (130, 80, 50), (250, 240, 230), (200, 120, 70)][k])
+            d.rectangle([cx - 80, y - 130, cx + 80, y - 110], fill=(255, 250, 245))
+            for j in range(4):
+                d.ellipse([cx - 64 + j * 40, y - 150, cx - 40 + j * 40, y - 126], fill=(220, 40, 60))
+            d.rectangle([cx - 100, y - 8, cx + 100, y], fill=(220, 220, 225))
+    # framed picture
+    d.rectangle([480, 260, 820, 520], fill=(250, 245, 230), outline=(160, 120, 60), width=16)
+    d.polygon([(500, 500), (600, 360), (680, 440), (740, 380), (800, 500)], fill=(120, 170, 120))
+    d.rectangle([0, 1450, PW, PH], fill=(235, 230, 225))
+    for k in range(0, PW, 90):
+        for j in range(1450, PH, 90):
+            if (k // 90 + j // 90) % 2 == 0:
+                d.rectangle([k, j, k + 90, j + 90], fill=(60, 60, 70))
+    return finish_plate(im, 0.35, 51)
+
+def display_case(img, y=1500):
+    d = ImageDraw.Draw(img)
+    d.rectangle([-20, y, PW + 20, PH], fill=(245, 240, 235))
+    d.rectangle([-20, y, PW + 20, y + 30], fill=(200, 160, 120))
+    d.rectangle([20, y + 60, PW - 20, y + 420], fill=(205, 230, 240), outline=(170, 170, 180), width=8)
+    for row in range(2):
+        yy = y + 160 + row * 160
+        d.rectangle([40, yy + 50, PW - 40, yy + 60], fill=(250, 250, 250))
+        for k in range(7):
+            cx = 120 + k * 175
+            col = [(230, 180, 110), (150, 90, 50), (245, 210, 160), (240, 150, 170)][(k + row) % 4]
+            d.ellipse([cx - 60, yy - 10, cx + 60, yy + 50], fill=col)
+            d.ellipse([cx - 40, yy - 20, cx + 40, yy + 10], fill=lt(col, 0.4))
+    d.line([(60, y + 80), (260, y + 400)], fill=(255, 255, 255), width=10)
+
+@cached
+def dining_plate():
+    im = Image.new('RGBA', (PW, PH), (170, 200, 170))
+    d = ImageDraw.Draw(im)
+    for y in range(60, 1500, 140):
+        for x in range((y // 140 % 2) * 70, PW, 140):
+            d.ellipse([x - 14, y - 14, x + 14, y + 14], fill=(195, 220, 190))
+            d.ellipse([x - 6, y - 6, x + 6, y + 6], fill=(240, 220, 150))
+    d.rectangle([0, 1300, PW, 1500], fill=(150, 105, 70))
+    window(d, 820, 360, 1180, 900, 'mountains', (250, 245, 230))
+    # cupboard with plates
+    d.rectangle([60, 360, 560, 1300], fill=(140, 95, 60))
+    for y in (520, 760, 1000):
+        d.rectangle([80, y, 540, y + 16], fill=(110, 72, 45))
+        for k in range(4):
+            d.ellipse([100 + k * 110, y - 120, 200 + k * 110, y - 4], fill=(250, 250, 245), outline=(80, 120, 190), width=8)
+    d.rectangle([60, 330, 560, 370], fill=(110, 72, 45))
+    d.rectangle([600, 1020, 760, 1180], fill=(250, 245, 230), outline=(110, 72, 45), width=12)
+    d.ellipse([640, 1050, 720, 1130], fill=(220, 120, 110))
+    wood_floor(d, 1500, (160, 112, 72))
+    return finish_plate(im, 0.4, 61)
+
+def cloth_table(img, y=1560):
+    d = ImageDraw.Draw(img)
+    d.rectangle([-20, y, PW + 20, PH], fill=(250, 250, 250))
+    sq = 70
+    for x in range(-20, PW + 20, sq):
+        for yy in range(y, PH, sq):
+            if (x // sq + yy // sq) % 2 == 0:
+                d.rectangle([x, yy, x + sq, yy + sq], fill=(215, 60, 60))
+    d.rectangle([-20, y, PW + 20, y + 14], fill=(190, 45, 45))
+
+@cached
+def factory_plate():
+    im = Image.new('RGBA', (PW, PH), (170, 180, 190))
+    d = ImageDraw.Draw(im)
+    d.rectangle([0, 0, PW, 1550], fill=(185, 192, 200))
+    for k in range(4):
+        x0 = 40 + k * 310
+        d.rectangle([x0, 140, x0 + 270, 600], fill=(220, 235, 245), outline=(100, 110, 120), width=12)
+        for j in range(1, 3):
+            d.line([(x0 + j * 90, 140), (x0 + j * 90, 600)], fill=(100, 110, 120), width=6)
+        d.line([(x0, 370), (x0 + 270, 370)], fill=(100, 110, 120), width=6)
+    d.rectangle([0, 660, PW, 700], fill=(120, 130, 140))
+    d.line([(0, 740), (PW, 740)], fill=(200, 120, 60), width=24)
+    d.line([(1150, 740), (1150, 1550)], fill=(200, 120, 60), width=24)
+    # big steel vat
+    d.rectangle([140, 820, 640, 1400], fill=(200, 205, 215), outline=(120, 125, 135), width=10)
+    d.ellipse([140, 770, 640, 870], fill=(220, 225, 232), outline=(120, 125, 135), width=10)
+    for y in (950, 1150, 1330):
+        d.line([(140, y), (640, y)], fill=(150, 155, 165), width=8)
+    d.ellipse([500, 980, 600, 1080], fill=(250, 250, 250), outline=(60, 60, 70), width=8)
+    d.line([(550, 1030), (580, 1000)], fill=(220, 40, 40), width=6)
+    d.rectangle([180, 1400, 230, 1560], fill=(120, 125, 135))
+    d.rectangle([550, 1400, 600, 1560], fill=(120, 125, 135))
+    # pipe from vat to filler
+    d.line([(640, 1000), (820, 1000), (820, 1240)], fill=(150, 155, 165), width=40)
+    d.rectangle([770, 1220, 870, 1300], fill=(120, 125, 135))
+    d.rectangle([0, 1550, PW, PH], fill=(120, 125, 130))
+    d.line([(0, 1600), (PW, 1600)], fill=(240, 200, 60), width=14)
+    for k in range(-6, 7):
+        d.line([(CX + k * 90, 1550), (CX + k * 330, PH)], fill=(105, 110, 115), width=4)
+    return finish_plate(im, 0.4, 71)
+
+def conveyor(img, y, t, speed=160):
+    d = ImageDraw.Draw(img)
+    d.rectangle([-20, y, PW + 20, y + 40], fill=(60, 62, 68))
+    off = (t * speed) % 80
+    for x in range(-80, PW + 80, 80):
+        d.line([(x + off, y + 4), (x + off, y + 36)], fill=(95, 98, 105), width=6)
+    d.rectangle([-20, y + 40, PW + 20, y + 70], fill=(150, 155, 165))
+    for x in range(60, PW, 260):
+        d.rectangle([x, y + 70, x + 30, y + 330], fill=(110, 115, 125))
+
+@cached
+def warehouse_plate():
+    im = Image.new('RGBA', (PW, PH), (200, 185, 160))
+    d = ImageDraw.Draw(im)
+    d.rectangle([0, 0, PW, 1300], fill=(190, 175, 150))
+    for k in range(-2, 8):
+        x = k * 220
+        d.line([(x, 0), (x + 220, 260)], fill=(120, 110, 95), width=14)
+        d.line([(x + 220, 0), (x, 260)], fill=(120, 110, 95), width=14)
+    d.line([(0, 260), (PW, 260)], fill=(110, 100, 85), width=20)
+    d.rectangle([380, 360, 920, 900], fill=(140, 200, 235), outline=(110, 100, 85), width=16)
+    d.polygon([(380, 780), (560, 600), (700, 720), (820, 620), (920, 700), (920, 900), (380, 900)], fill=(110, 160, 100))
+    # stacked sacks
+    for row in range(4):
+        for k in range(4 - row):
+            x = 20 + k * 120 + row * 60
+            y = 1300 - row * 90
+            d.rounded_rectangle([x, y - 90, x + 115, y], 30, fill=(205, 180, 130), outline=(160, 135, 95), width=5)
+    d.rectangle([0, 1300, PW, PH], fill=(160, 150, 135))
+    rng = np.random.default_rng(9)
+    # two hazelnut mountains in the back
+    for (cx, cy, rw, rh) in ((900, 1360, 520, 520), (300, 1420, 380, 300)):
+        for k in range(900):
+            u = rng.uniform(-1, 1)
+            v = rng.uniform(0, 1)
+            if v > 1 - abs(u) ** 1.6 * 0.0 - (1 - abs(u) ** 2):
+                continue
+            x = cx + u * rw
+            y = cy - v * rh * (1 - u * u)
+            nut_d(d, x, y, 18, k)
+    return finish_plate(im, 0.4, 81)
+
+def nut_heap(img, cx, base, rw, rh, seed=1, r=26):
+    d = ImageDraw.Draw(img)
+    rng = np.random.default_rng(seed)
+    pts = []
+    for k in range(int(rw * rh / 260)):
+        u = rng.uniform(-1, 1)
+        v = rng.uniform(0, 1) * (1 - u * u)
+        pts.append((cx + u * rw, base - v * rh, k))
+    pts.sort(key=lambda p: p[1])
+    for (x, y, k) in pts:
+        nut_d(d, x, y, r, k)
+
+# ================================================================ characters (same person = same look)
+NTEEN = dict(PRESETS['girl'])
+PIETRO = dict(PRESETS['chef'])
+SHOPKEEP = dict(PRESETS['grandma'], top=(120, 90, 160), apron=(240, 240, 230))
+NKID = dict(PRESETS['kid'], skin='light', hair_color=(120, 80, 40), top=(90, 150, 220))
+MAMMA = dict(PRESETS['woman'], hair='bun', skin='tan', hair_color=(60, 40, 30), top=(200, 90, 90), apron=(245, 245, 235))
+VENDOR = dict(PRESETS['salesman'], top=(110, 130, 90))
+WORKERN = dict(PRESETS['worker'], top=(245, 245, 245), hat=None, hair='short', apron=(90, 140, 200))
+MICHELE = dict(PRESETS['boss'], skin='tan', hair_color=(40, 30, 25), top=(60, 80, 130), tie=(180, 120, 60))
+PARTNER = dict(PRESETS['boss'], skin='light', hair='messy', hair_color=(160, 160, 165), top=(90, 70, 60), glasses=True, tie=(60, 120, 80))
+FARMER = dict(PRESETS['worker'], skin='brown', top=(200, 120, 60), hat='cap', hat_color=(60, 110, 60))
+
+def hold(img, sp, a, hand='hand_r', dx=0, dy=0, rot=0, scale=1.0):
+    hx, hy = a[hand]
+    put(img, sp, hx + dx, hy + dy, scale, rot)
+
+# ================================================================ scenes
+# 0  Nutella started out as a brick you had to slice!
+def brick_scene(img, t, t_slice, girl_expr='shocked', cut_done=False):
+    P_ = P(img, NTEEN, 1010, 2000, t, girl_expr, arm_l=110 + 10 * math.sin(t * 7), arm_r=150 + 6 * math.sin(t * 6), scale=0.95, look_dir=-1)
+    counter_front(img, 1600)
+    board(img, 480, 1600, 860)
+    LW, LH = 760, 820
+    lf = loaf(LW, LH)
+    lx, ly = 470 - LW / 2, 1600 - LH
+    floor_shadow(img, 470, 1610, 440, 0.3)
+    u = clamp01((t - t_slice) / 0.35) if t_slice is not None else 0
+    cutx = lx + LW * 0.86 - 110
+    kn = knife(430).rotate(-90, resample=Image.BICUBIC, expand=True)
+    ky = 900 - 30 * abs(math.sin(t * 5)) * (1 - u) + 700 * ease_in_out(u)
+    if u > 0:
+        sl = slab_sprite(110, int(LH * 0.8))
+        fall = clamp01((t - t_slice - 0.25) / 0.45)
+        crop = lf.crop((0, 0, int(cutx - lx), lf.height))
+        paste_at(img, crop, int(lx), int(ly))
+        put(img, sl, cutx + 70 + 160 * ease_out(fall), 1600 - sl.height / 2 + 60 * fall, 1.0, -60 * ease_in_out(fall))
+    else:
+        paste_at(img, lf, int(lx), int(ly))
+    put(img, kn, cutx, ky)
+    d = ImageDraw.Draw(img)
+    if u > 0:
+        ph = clamp01((t - t_slice) / 0.8)
+        for k in range(10):
+            x = cutx + (k - 5) * 22 * ph * 3
+            y = 1560 - 160 * math.sin(ph * math.pi) * (0.5 + (k % 3) * 0.3) + 40 * ph
+            d.ellipse([x - 8, y - 6, x + 8, y + 6], fill=(150, 95, 55))
+    return P_
+
+class N0(Sc):
     def events(self):
-        return [(0.05, 'pop', 0.4), (self.we('fun') - 0.05, 'chime', 0.5), (self.we('started') - 0.05, 'riser', 0.4)]
+        return [(self.we('brick') - 0.03, 'bigpop', 0.45), (self.we('slice') - 0.05, 'scratch', 0.6)]
     def shots(self):
-        return [(0.0, 1.0, 1.06, CX, 1152), (self.we('fun'), 1.15, 1.22, CX, 1250), (self.we('started'), 1.0, 1.0, CX, 1152)]
+        b = self.we('brick')
+        return [(0.0, 1.08, 1.12, CX - 40, 1080), (b, 1.2, 1.25, CX - 40, 1180), (self.we('had'), 1.3, 1.36, CX + 40, 1260)]
     def plate(self):
-        self.hp = harbor_plate()
+        return counter_plate(0)
+    def dyn(self, img, t):
+        brick_scene(img, t, self.we('slice') - 0.05, 'shocked')
+
+# 1  And it only exists because there wasn't enough chocolate.
+class N1(Sc):
+    def events(self):
+        e = [(0.05, 'swipe', 0.3), (self.we('wasn') - 0.05, 'thud', 0.45)]
+        return e
+    def shots(self):
+        return [(0.0, 1.0, 1.05, CX, 1152), (self.we('because'), 1.18, 1.24, CX, 1000), (self.we('enough'), 1.1, 1.14, CX + 80, 1250)]
+    def plate(self):
+        return shop_plate()
+    def dyn(self, img, t):
+        wz = self.we('wasn')
+        sad = t > wz
+        # chocolate bars vanish from the gap
+        d = ImageDraw.Draw(img)
+        n = 4 if t < self.we('because') else max(0, 4 - int((t - self.we('because')) / 0.35))
+        for k in range(n):
+            x = 500 + k * 80
+            d.rectangle([x, 560, x + 62, 680], fill=(110, 60, 35), outline=(70, 35, 20), width=4)
+            d.rectangle([x, 600, x + 62, 640], fill=(220, 190, 120))
+        a = P(img, SHOPKEEP, 760, 2150, t, 'sad' if sad else 'nervous', talk=talk_frame(t) and not sad,
+              arm_l=95 + 8 * math.sin(t * 10), arm_r=20, scale=0.98)
+        P(img, NKID, 250, 2240, t, 'sad' if sad else 'think', arm_l=20, arm_r=130 if not sad else 30, scale=0.85, phase=2)
+        shop_counter(img, 1620)
+        # the shopkeeper tips an empty cocoa tin upside down
+        hx, hy = a['hand_l']
+        im, dd = _ss(170, 200)
+        dd.rectangle([0, 0, 340, 400], fill=(150, 90, 50), outline=(90, 50, 25), width=10)
+        dd.rectangle([0, 130, 340, 270], fill=(240, 220, 170))
+        dd.ellipse([120, 150, 220, 250], fill=(110, 60, 30))
+        tin = _down(im)
+        put(img, tin, hx - 40, hy - 60, 1.0, 160 + 15 * math.sin(t * 12))
+        if sad:
+            for k in range(3):
+                ph = ((t - wz) * 1.5 + k / 3) % 1
+                d.ellipse([hx - 50 + k * 10, hy + 40 + ph * 400, hx - 40 + k * 10, hy + 50 + ph * 400], fill=(110, 60, 30))
+
+# 2  So how did a brick become the spread everyone loves?
+class N2(Sc):
+    def events(self):
+        return [(0.05, 'pop', 0.4), (self.we('become') - 0.05, 'bigpop', 0.5), (self.we('spread') - 0.05, 'squeak', 0.4)]
+    def shots(self):
+        return [(0.0, 1.0, 1.05, CX, 1152), (self.we('become'), 1.15, 1.2, CX - 40, 1350), (self.we('everyone'), 1.08, 1.12, CX + 60, 1200)]
+    def plate(self):
+        return kitchen_plate()
+    def dyn(self, img, t):
+        bc = self.we('become')
+        ev = self.we('everyone')
+        expr = 'think' if t < bc else ('shocked' if t < ev else 'happy')
+        a = P(img, NTEEN, 840, 2080, t, expr, talk=talk_frame(t) and t < bc, arm_l=110 + 15 * math.sin(t * 6), arm_r=150 if t < bc else 40, scale=0.98, look_dir=-1)
+        table_front(img, 1640, (230, 120, 140), (245, 170, 185))
+        u = clamp01((t - bc) / 0.4)
+        if u < 1:
+            lf = loaf(420, 420, True)
+            put(img, lf, 330, 1640 - 210 + 20 * u, 1 - u)
+        if u > 0:
+            j = jar(360)
+            floor_shadow(img, 330, 1650, 230, 0.3)
+            put(img, j, 330, 1640 - 236, 0.4 + 0.6 * ease_back(u, 2.0))
+        hx, hy = a['hand_l']
+        put(img, bread(230, spread=clamp01((t - bc) / 1.0)), hx, hy - 70, 1.0, -12 + 4 * math.sin(t * 5))
+        if t >= ev:
+            d = ImageDraw.Draw(img)
+            for k in range(5):
+                ph = ((t - ev) * 0.8 + k / 5) % 1
+                heart_d(d, 330 + (k - 2) * 70, 1150 - ph * 300, 26 * (1 - ph * 0.5), (240, 90, 130))
+
+# 3  After World War Two, cocoa was super hard to get.
+class N3(Sc):
+    def events(self):
+        return [(0.05, 'wind', 0.4), (self.we('cocoa') - 0.03, 'pop', 0.4), (self.we('hard') - 0.05, 'thud', 0.4)]
+    def shots(self):
+        return [(0.0, 1.0, 1.05, CX, 1152), (self.we('cocoa'), 1.2, 1.26, CX, 1300), (self.we('hard'), 1.12, 1.16, CX - 60, 1150)]
+    def plate(self):
+        return street_plate()
+    def dyn(self, img, t):
+        h = self.we('hard')
+        P(img, VENDOR, 640, 1900, t, 'sad' if t > h else 'nervous', arm_l=150 if t > h else 40, arm_r=150 if t > h else 40, scale=0.8, phase=1)
+        stall_table(img, 1520)
+        P(img, PIETRO, 1050, 2250, t, 'think' if t < h else 'sad', talk=talk_frame(t) and t < h, arm_l=100 + 10 * math.sin(t * 6), arm_r=20, scale=0.95, look_dir=-1)
+        P(img, dict(PRESETS['grandma'], hair_color=(70, 50, 40), glasses=False, top=(90, 140, 200)), 230, 2230, t, 'shocked' if t > h else 'smile', arm_l=20, arm_r=110, scale=0.9, phase=2, look_dir=1)
+
+# 4  So pastry chef Pietro Ferrero got creative.
+class N4(Sc):
+    def events(self):
+        return [(0.05, 'pop', 0.4), (self.we('creative') - 0.05, 'ding', 0.6)]
+    def shots(self):
+        return [(0.0, 1.0, 1.06, CX, 1152), (self.we('Pietro'), 1.2, 1.26, CX, 1150), (self.we('creative'), 1.12, 1.16, CX + 40, 1250)]
+    def plate(self):
+        return pastry_plate()
+    def dyn(self, img, t):
+        c = self.we('creative')
+        on = t >= c - 0.1
+        a = P(img, PIETRO, CX, 2050, t, 'happy' if on else 'think', talk=talk_frame(t) and not on,
+              arm_l=150 if on else 40, arm_r=(160 if on else 110) + 8 * math.sin(t * 8), scale=1.0)
+        display_case(img, 1560)
+        # basket of hazelnuts on the case
+        d = ImageDraw.Draw(img)
+        d.chord([820, 1420, 1180, 1660], 180, 360, fill=(200, 150, 90))
+        nut_heap(img, 1000, 1545, 170, 90, 3, 22)
+        d.rectangle([820, 1530, 1180, 1580], fill=(180, 130, 75))
+        hx, hy = a['hand_r']
+        put(img, nut(54), hx, hy - 60 - (30 if on else 0) * math.sin(clamp01((t - c) / 0.3) * math.pi), 1.0, 10 * math.sin(t * 4))
+        if on:
+            u = t - c
+            for k in range(8):
+                ang = k * math.pi / 4 + u
+                r = 110 + 30 * math.sin(u * 6)
+                sparkle(d, hx + math.cos(ang) * r, hy - 60 + math.sin(ang) * r, 20)
+
+# 5  He used mostly hazelnuts and a little cocoa.
+class N5(Sc):
+    def events(self):
+        e = [(0.05, 'rattle', 0.5), (self.we('hazelnuts'), 'rattle', 0.5), (self.we('little') - 0.03, 'pop', 0.35)]
+        return e
+    def shots(self):
+        return [(0.0, 1.05, 1.1, CX, 1152), (self.we('hazelnuts'), 1.22, 1.28, CX + 40, 1250), (self.we('little'), 1.4, 1.46, CX + 160, 1100)]
+    def plate(self):
+        return counter_plate(1)
+    def dyn(self, img, t):
+        lt_ = self.we('little')
+        a = P(img, PIETRO, 300, 2120, t, 'proud' if t > lt_ else 'happy', arm_l=20, arm_r=100 + 15 * math.sin(t * 7), scale=0.95)
+        counter_front(img, 1660, (235, 225, 210), (170, 110, 80))
+        bw = bowl(640, 1.0)
+        bx, by = 760, 1660 - bw.height / 2 + 10
+        floor_shadow(img, bx, 1680, 360, 0.3)
+        # heap inside bowl grows
+        g = clamp01(t / max(0.5, lt_))
+        put(img, bw, bx, by)
+        nut_heap(img, bx, by - bw.height * 0.32, 230, 40 + 120 * g, 5, 24)
+        # stream of falling nuts from a scoop
+        d = ImageDraw.Draw(img)
+        if t < lt_ + 0.2:
+            for k in range(14):
+                ph = (t * 2.2 + k / 14) % 1
+                x = bx - 40 + math.sin(k * 2.1) * 50
+                y = 650 + ph * (by - bw.height * 0.3 - 650)
+                put(img, nut(26, (k * 40) % 360), x, y)
+            d.polygon([(bx - 200, 540), (bx + 120, 560), (bx + 60, 680), (bx - 150, 660)], fill=(200, 205, 212), outline=(140, 145, 155))
+        # tiny spoon of cocoa
+        if t >= lt_ - 0.3:
+            u = clamp01((t - (lt_ - 0.3)) / 0.5)
+            sx, sy = bx + 300, 1050 + 150 * u
+            d.line([(sx, sy), (sx + 220, sy - 160)], fill=(190, 190, 198), width=14)
+            d.ellipse([sx - 45, sy - 25, sx + 35, sy + 25], fill=(190, 190, 198))
+            if u < 1:
+                d.ellipse([sx - 35, sy - 30, sx + 25, sy + 5], fill=(80, 45, 25))
+            else:
+                ph = clamp01((t - lt_ - 0.2) / 0.6)
+                for k in range(12):
+                    px = sx - 20 + (k - 6) * 9 * (1 + ph)
+                    py = sy + ph * 230 + (k % 3) * 10
+                    d.ellipse([px - 7, py - 7, px + 7, py + 7], fill=(80, 45, 25))
+
+# 6  In 1946, it was a solid loaf people sliced onto bread.
+class N6(Sc):
+    def events(self):
+        e = [(0.05, 'rustle', 0.5), (self.we('solid') - 0.03, 'thud', 0.5)]
+        for k in range(3):
+            e.append((self.ct(k), 'scratch', 0.45))
+        return e
+    def ct(self, k):
+        a = self.we('people')
+        return a + 0.6 * k
+    def shots(self):
+        return [(0.0, 1.0, 1.05, CX, 1152), (self.we('solid'), 1.2, 1.26, CX - 40, 1400), (self.we('people'), 1.08, 1.12, CX, 1250)]
+    def plate(self):
+        return dining_plate()
+    def dyn(self, img, t):
+        pe = self.we('people')
+        a = P(img, MAMMA, 330, 1930, t, 'happy' if t > pe else 'smile', talk=talk_frame(t) and t < pe,
+              arm_l=20, arm_r=100 + (25 * math.sin((t - pe) * 10) if t > pe else 0), scale=0.95)
+        kids_n = 0 if t < pe else min(3, 1 + int((t - pe) / 0.6))
+        k_ = P(img, NKID, 1040, 1960, t, 'happy' if kids_n else 'shocked', arm_l=120 + 10 * math.sin(t * 8), arm_r=20, scale=0.85, phase=2, look_dir=-1)
+        cloth_table(img, 1620)
+        board(img, 660, 1620, 520)
+        lf = loaf(420, 400, True)
+        floor_shadow(img, 660, 1630, 260, 0.3)
+        put(img, lf, 660, 1620 - lf.height / 2)
+        hx, hy = a['hand_r']
+        put(img, knife(300), hx + 110, hy, 1.0, -30 + (20 * math.sin((t - pe) * 10) if t > pe else 0))
+        kx, ky = k_['hand_l']
+        put(img, bread(230, slab=kids_n > 0), kx, ky - 60, 1.0, 8 * math.sin(t * 4))
+        # finished slices on plates
+        d = ImageDraw.Draw(img)
+        for k in range(kids_n - 1):
+            d.ellipse([900 + k * 150 - 70, 1700, 900 + k * 150 + 70, 1760], fill=(250, 250, 250), outline=(80, 120, 190), width=6)
+            put(img, bread(130, slab=True), 900 + k * 150, 1690)
+        chip_at(img, '1946', 1000, 720, t, self.we('1946'), dot=(215, 60, 60))
+
+# 7  In 1951, it became a creamy spread called Supercrema.
+class N7(Sc):
+    def events(self):
+        return [(0.05, 'tick', 0.4), (self.we('creamy') - 0.05, 'bloop', 0.5), (self.we('called') - 0.05, 'ding', 0.5)]
+    def shots(self):
+        return [(0.0, 1.0, 1.05, CX, 1152), (self.we('creamy'), 1.2, 1.26, CX - 60, 1250), (self.we('called'), 1.1, 1.14, CX + 80, 1350)]
+    def plate(self):
+        return factory_plate()
+    def dyn(self, img, t):
+        cr = self.we('creamy')
+        d = ImageDraw.Draw(img)
+        # swirling cream visible in vat window
+        d.ellipse([200, 860, 580, 940], fill=(105, 62, 32))
+        for k in range(3):
+            a0 = (t * 200 + k * 120) % 360
+            d.arc([230 + k * 40, 870 + k * 6, 550 - k * 40, 930 - k * 6], a0, a0 + 120, fill=(160, 105, 65), width=8)
+        # filler nozzle stream
+        conveyor(img, 1560, t)
+        off = (t * 160) % 260
+        for k in range(-1, 6):
+            x = k * 260 + off - 60
+            near = abs(x - 820) < 70
+            put(img, jar(170, lid=not near and x > 820, level=1.0 if x > 820 else (0.6 if near else 0.0)), x, 1560 - 112)
+        d.rectangle([810, 1300, 830, 1450], fill=(105, 62, 32))
+        a = P(img, WORKERN, 1060, 2300, t, 'happy' if t > cr else 'smile', talk=talk_frame(t) and t < cr,
+              arm_l=140 + 10 * math.sin(t * 7) if t > cr else 60, arm_r=30, scale=0.9, look_dir=-1)
+        hx, hy = a['hand_l']
+        if t > cr:
+            put(img, bread(200, spread=1.0), hx, hy - 60, 1.0, -10)
+        chip_at(img, '1951', 1000, 820, t, self.we('1951'), dot=(60, 150, 220))
+
+# 8  In 1964, his son Michele renamed it Nutella.
+class N8(Sc):
+    def events(self):
+        return [(0.05, 'pop', 0.4), (self.we('renamed') - 0.05, 'riser', 0.35), (self.we('renamed') + 0.35, 'party', 0.45)]
+    def shots(self):
+        return [(0.0, 1.0, 1.05, CX, 1152), (self.we('Michele'), 1.18, 1.24, CX - 120, 1150), (self.we('renamed'), 1.1, 1.16, CX - 40, 1050)]
+    def plate(self):
+        return office_plate()
+    def dyn(self, img, t):
+        rn = self.we('renamed')
+        on = t >= rn
+        a = P(img, MICHELE, 470, 2080, t, 'proud' if on else 'smile', talk=talk_frame(t) and not on,
+              arm_l=20, arm_r=(165 if on else 90) + 5 * math.sin(t * 8), scale=1.0)
+        P(img, PARTNER, 1060, 2120, t, 'happy' if on else 'think', arm_l=(130 + 25 * math.sin(t * 14)) if on else 30, arm_r=(130 + 25 * math.sin(t * 14 + 1)) if on else 30, scale=0.9, phase=1, look_dir=-1)
+        table_front(img, 1700, (120, 85, 60), (160, 115, 80))
+        hx, hy = a['hand_r']
+        put(img, jar(330), hx, hy - 190, 1.0, 4 * math.sin(t * 5))
+        if on:
+            d = ImageDraw.Draw(img)
+            u = t - rn
+            for k in range(14):
+                ang = math.radians(k * 360 / 14 + u * 40)
+                r = 220 + 60 * (u % 1)
+                sparkle(d, hx + math.cos(ang) * r, hy - 190 + math.sin(ang) * r, 18, [(255, 230, 120), (255, 255, 255), (250, 160, 190)][k % 3])
+        chip_at(img, '1964', 1000, 760, t, self.we('1964'), dot=(200, 120, 60))
+
+# 9  Nut, for hazelnut, plus ella, a sweet-sounding Italian ending.
+class N9(Sc):
+    def events(self):
+        return [(0.02, 'bigpop', 0.45), (self.we('ella') - 0.04, 'chime', 0.5), (self.we('sweet') - 0.03, 'pop', 0.4)]
+    def shots(self):
+        return [(0.0, 1.05, 1.1, CX - 140, 1150), (self.we('ella'), 1.05, 1.1, CX + 140, 1150), (self.we('sweet'), 1.0, 1.04, CX, 1200)]
+    def plate(self):
         return bedroom_plate()
     def dyn(self, img, t):
-        f = self.we('fun')
-        a = P(img, TEEN, 620, 2150, t, 'happy' if t > f else 'smile', talk=talk_frame(t) and t < f, arm_l=150 if t > f else 30,
-              arm_r=120 + 15 * math.sin(t * 6), scale=0.95)
-        n = 10 if t > f else 4 + int(clamp01(t / max(0.1, f)) * 5)
+        el = self.we('ella')
+        sw = self.we('sweet')
+        expr = 'shocked' if t < el else ('wink' if t > sw else 'happy')
+        a = P(img, NTEEN, 640, 2160, t, expr, talk=talk_frame(t), arm_l=150 if t > sw else 100, arm_r=110 + 10 * math.sin(t * 6), scale=0.98)
+        # giant hazelnut on the left
+        u = clamp01(t / 0.3)
+        put(img, nut(150), 250, 1150 + 20 * math.sin(t * 3), 0.3 + 0.7 * ease_back(u, 2.0), 10 * math.sin(t * 2))
         hx, hy = a['hand_r']
-        put(img, clog(620, PINK, n), hx + 40, hy - 170, 1.0, 8 * math.sin(t * 4))
-        if t > f:
-            hx2, hy2 = a['hand_l']
-            put(img, clog(500, BLUE, 8, flip=True), hx2 - 20, hy2 - 140, 1.0, -8 * math.sin(t * 4))
-        st = self.we('started')
-        k = clamp01((t - (st + 0.2)) / max(0.2, self.dur - st - 0.3))
-        if k > 0:
-            hp = self.hp.copy()
-            s0_visual(hp, 0.9)
-            hp.putalpha(hp.getchannel('A').point(lambda v: int(v * k)))
-            img.alpha_composite(hp)
+        put(img, jar(300), hx + 30, hy - 170, 1.0, 5 * math.sin(t * 4))
+        if t >= el:
+            d = ImageDraw.Draw(img)
+            v = t - el
+            for k in range(7):
+                ph = (v * 0.7 + k / 7) % 1
+                heart_d(d, 1000 + (k - 3) * 45 + 30 * math.sin(k + v * 3), 1250 - ph * 520, 30 * (1 - ph * 0.4), [(240, 80, 120), (255, 150, 190), (250, 110, 150)][k % 3])
 
-SCENES = [S0, S1, S2, S3, S4, S5, S6, S7, S8, S9, S10]
+# 10  Now its maker buys about a quarter of the world's hazelnuts, all because of a brick you had to slice.
+class N10(Sc):
+    def events(self):
+        return [(0.05, 'rattle', 0.5), (self.we('quarter') - 0.03, 'cash', 0.5), (self.we('brick') - 0.08, 'swipe', 0.35),
+                (self.we('slice') - 0.1, 'scratch', 0.5)]
+    def shots(self):
+        b = self.we('brick')
+        return [(0.0, 1.0, 1.06, CX, 1152), (self.we('quarter'), 1.15, 1.22, CX + 80, 1300), (b - 0.05, 1.18, 1.22, CX, 1100)]
+    def plate(self):
+        self.cp = counter_plate(0)
+        return warehouse_plate()
+    def dyn(self, img, t):
+        b = self.we('brick') - 0.05
+        if t >= b:
+            img.paste(self.cp, (0, 0))
+            brick_scene(img, t, self.we('slice') - 0.12, 'happy')
+            return
+        q = self.we('quarter')
+        nut_heap(img, CX, 1900, 520, 380, 8, 26)
+        a = P(img, FARMER, 1050, 2200, t, 'shocked' if t > q else 'happy', arm_l=130 + 30 * math.sin(t * 6), arm_r=30, scale=0.92, look_dir=-1)
+        # scoop throwing nuts
+        d = ImageDraw.Draw(img)
+        hx, hy = a['hand_l']
+        d.line([(hx, hy), (hx - 160, hy + 120)], fill=(130, 90, 55), width=16)
+        d.polygon([(hx - 230, hy + 90), (hx - 120, hy + 150), (hx - 160, hy + 230), (hx - 270, hy + 170)], fill=(190, 195, 205))
+        for k in range(10):
+            ph = (t * 1.3 + k / 10) % 1
+            put(img, nut(24, (k * 50) % 360), hx - 200 - ph * 500, hy + 100 - 400 * math.sin(ph * math.pi) + ph * 300)
+        P(img, NTEEN, 240, 2240, t, 'shocked' if t > q else 'smile', arm_l=20, arm_r=150 if t > q else 90, scale=0.85, phase=2, look_dir=1)
+        chip_at(img, '~25%', CX, 760, t, q, dot=(165, 100, 50))
+
+SCENES = [N0, N1, N2, N3, N4, N5, N6, N7, N8, N9, N10]

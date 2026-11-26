@@ -1,21 +1,21 @@
 def W(s, spoken=None):
     return (s, spoken if spoken is not None else s)
 
-HOOK_TEXT = "CROCS WERE\nBOAT SHOES?!"
+HOOK_TEXT = "NUTELLA WAS\nA BRICK?!"
 
 def ws(text):
     return [W(x) for x in text.split()]
 
 SENTENCES = [
-    ws("Crocs were invented as boat shoes!"),
-    ws("And a mom got ten million dollars just for filling the holes."),
-    ws("So how did a boat clog end up on everyone's feet?"),
-    ws("Three friends from Colorado found a foam clog made by a Canadian company."),
-    ws("It floated, it didn't slip, and the holes let air in and water out."),
-    ws("In") + [W("2002,", "two thousand two,")] + ws("they brought") + [W("200", "two hundred")] + ws("pairs to a Florida boat show, and every pair sold out."),
-    ws("Then a mom named Sheri started sticking charms in her kids' Crocs."),
-    ws("She turned it into a basement business called Jibbitz."),
-    ws("And in") + [W("2006,", "two thousand six,")] + ws("Crocs bought it for ten million dollars. Seriously."),
-    ws("Time magazine even called Crocs one of the") + [W("50", "fifty")] + ws("worst inventions."),
-    ws("But the holes made for boats became the fun part, and it all started because..."),
+    ws("Nutella started out as a brick you had to slice!"),
+    ws("And it only exists because there wasn't enough chocolate."),
+    ws("So how did a brick become the spread everyone loves?"),
+    ws("After World War Two, cocoa was super hard to get."),
+    ws("So pastry chef Pietro Ferrero got creative."),
+    ws("He used mostly hazelnuts and just a little cocoa."),
+    ws("In") + [W("1946,", "nineteen forty six,")] + ws("it was a solid loaf people sliced onto bread. Yep."),
+    ws("In") + [W("1951,", "nineteen fifty one,")] + ws("it became a creamy spread called Supercrema."),
+    ws("In") + [W("1964,", "nineteen sixty four,")] + ws("his son Michele renamed it Nutella."),
+    ws("Nut, for hazelnut, plus") + [W("ella,"), W("a"), W("sweet-sounding", "sweet sounding")] + ws("Italian ending."),
+    ws("Now its maker buys about a quarter of the world's hazelnuts, all because of a brick you had to slice."),
 ]
