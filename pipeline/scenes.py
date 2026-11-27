@@ -1,4 +1,4 @@
-"""Nutella Used to Be a Brick - scenes (cartoon people kit, detailed 2.5D settings)."""
+"""Emoji Started Because of One Tiny Heart - scenes (cartoon people kit, detailed 2.5D settings)."""
 import math
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
@@ -1089,349 +1089,947 @@ def hold(img, sp, a, hand='hand_r', dx=0, dy=0, rot=0, scale=1.0):
     hx, hy = a[hand]
     put(img, sp, hx + dx, hy + dy, scale, rot)
 
-# ================================================================ scenes
-# 0  Nutella started out as a brick you had to slice!
-def brick_scene(img, t, t_slice, girl_expr='shocked', cut_done=False):
-    P_ = P(img, NTEEN, 1010, 2000, t, girl_expr, arm_l=110 + 10 * math.sin(t * 7), arm_r=150 + 6 * math.sin(t * 6), scale=0.95, look_dir=-1)
-    counter_front(img, 1600)
-    board(img, 480, 1600, 860)
-    LW, LH = 760, 820
-    lf = loaf(LW, LH)
-    lx, ly = 470 - LW / 2, 1600 - LH
-    floor_shadow(img, 470, 1610, 440, 0.3)
-    u = clamp01((t - t_slice) / 0.35) if t_slice is not None else 0
-    cutx = lx + LW * 0.86 - 110
-    kn = knife(430).rotate(-90, resample=Image.BICUBIC, expand=True)
-    ky = 900 - 30 * abs(math.sin(t * 5)) * (1 - u) + 700 * ease_in_out(u)
-    if u > 0:
-        sl = slab_sprite(110, int(LH * 0.8))
-        fall = clamp01((t - t_slice - 0.25) / 0.45)
-        crop = lf.crop((0, 0, int(cutx - lx), lf.height))
-        paste_at(img, crop, int(lx), int(ly))
-        put(img, sl, cutx + 70 + 160 * ease_out(fall), 1600 - sl.height / 2 + 60 * fall, 1.0, -60 * ease_in_out(fall))
+
+# ================================================================ EMOJI props (generic, no logos)
+FONT_CJK = '/usr/share/fonts/opentype/noto/NotoSansCJK-Black.ttc'
+
+BM = {
+    'heart': ["............", "..##....##..", ".####..####.", "############", "############", "############",
+              ".##########.", "..########..", "...######...", "....####....", ".....##.....", "............"],
+    'sun': [".....##.....", ".#...##...#.", "..#......#..", "....####....", "...######...", "##.######.##",
+            "##.######.##", "...######...", "....####....", "..#......#..", ".#...##...#.", ".....##....."],
+    'smile': ["...######...", "..#......#..", ".#........#.", "#..##..##..#", "#..##..##..#", "#..........#",
+              "#.#......#.#", "#..#....#..#", ".#..####..#.", "..#......#..", "...######...", "............"],
+    'umbrella': [".....##.....", "...######...", "..########..", ".##########.", "############", "#..#..#..#.#",
+                 ".....##.....", ".....##.....", ".....##.....", ".....##.....", "..#..##.....", "...##......."],
+    'note': ["......####..", "......#..#..", "......#..#..", "......#..#..", "......#..#..", "......#..#..",
+             "......#..#..", "..####...#..", ".#####..##..", ".#####.###..", "..###..##...", "............"],
+    'cloud': ["............", "............", "....###.....", "...#####....", "..#######.#.", ".##########.",
+              "############", "############", ".##########.", "............", "............", "............"],
+    'moon': ["....####....", "...###......", "..###.......", ".###........", ".###........", ".###........",
+             ".###........", ".###........", "..###.......", "...###......", "....####....", "............"],
+    'phone': ["...######...", "...#....#...", "...#....#...", "...#....#...", "...#....#...", "...######...",
+              "...#.##.#...", "...######...", "...#.##.#...", "...######...", "...#.##.#...", "...######..."],
+}
+BM_KEYS = list(BM)
+ICOL = [(230, 50, 80), (240, 140, 30), (40, 40, 45), (60, 110, 210), (40, 40, 45), (90, 150, 220), (200, 150, 20), (40, 40, 45)]
+
+_PX = {}
+def pixel_icon(kind, cell=10, col=(230, 50, 80), n=None, bg=None, grid=None):
+    """12x12 pixel art. n = number of pixels drawn so far (for the drawing animation)."""
+    key = (kind, cell, tuple(col), n, bg, grid)
+    if key in _PX:
+        return _PX[key]
+    rows = BM[kind]
+    im = Image.new('RGBA', (cell * 12, cell * 12), bg if bg else (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    k = 0
+    for y, r in enumerate(rows):
+        for x, ch in enumerate(r):
+            if ch == '#':
+                if n is not None and k >= n:
+                    continue
+                d.rectangle([x * cell, y * cell, x * cell + cell - 1, y * cell + cell - 1], fill=col)
+                k += 1
+    if grid:
+        for i in range(13):
+            d.line([(i * cell, 0), (i * cell, cell * 12)], fill=grid, width=max(1, cell // 14))
+            d.line([(0, i * cell), (cell * 12, i * cell)], fill=grid, width=max(1, cell // 14))
+    _PX[key] = im
+    return im
+
+def npix(kind):
+    return sum(r.count('#') for r in BM[kind])
+
+_PG = {}
+def pager(w=560, body=(70, 190, 200), heart=1.0, blank=False):
+    """90s pager standing upright: clip on top, LCD with a pixel heart. heart = heart scale (pulse)."""
+    key = (w, tuple(body), round(heart, 2), blank)
+    if key in _PG:
+        return _PG[key]
+    h = int(w * 1.6)
+    im, d = _ss(w, h)
+    s = SS
+    d.rounded_rectangle([0, int(h * 0.04) * s, w * s - 1, h * s - 1], int(w * 0.16) * s, fill=dk(body, 0.7))
+    d.rounded_rectangle([int(w * 0.03) * s, int(h * 0.04) * s, int(w * 0.97) * s, int(h * 0.975) * s], int(w * 0.15) * s, fill=body)
+    d.rounded_rectangle([int(w * 0.08) * s, int(h * 0.07) * s, int(w * 0.25) * s, int(h * 0.55) * s], int(w * 0.05) * s, fill=lt(body, 0.35))
+    # screen bezel + LCD
+    sx0, sy0, sx1, sy1 = int(w * 0.12), int(h * 0.13), int(w * 0.88), int(h * 0.52)
+    d.rounded_rectangle([sx0 * s, sy0 * s, sx1 * s, sy1 * s], int(w * 0.05) * s, fill=(40, 45, 50))
+    lx0, ly0, lx1, ly1 = sx0 + int(w * 0.05), sy0 + int(w * 0.05), sx1 - int(w * 0.05), sy1 - int(w * 0.05)
+    d.rectangle([lx0 * s, ly0 * s, lx1 * s, ly1 * s], fill=(170, 200, 140))
+    # faint LCD dot rows (digits area) along the top
+    for k in range(8):
+        x = lx0 + 14 + k * (lx1 - lx0 - 28) / 8
+        d.rectangle([x * s, (ly0 + 12) * s, (x + (lx1 - lx0) / 12) * s, (ly0 + 30) * s], fill=(150, 180, 125))
+    out = _down(im)
+    dd = ImageDraw.Draw(out)
+    if not blank:
+        cell = max(2, int((lx1 - lx0) * 0.55 / 12 * heart))
+        hp = pixel_icon('heart', cell, (40, 50, 40))
+        out.alpha_composite(hp, (int((lx0 + lx1) / 2 - hp.width / 2), int((ly0 + ly1) / 2 - hp.height / 2 + 14)))
     else:
-        paste_at(img, lf, int(lx), int(ly))
-    put(img, kn, cutx, ky)
+        f = font(int(w * 0.09))
+        dd.text(((lx0 + lx1) / 2 - f.getlength('- - -') / 2, (ly0 + ly1) / 2 - w * 0.05), '- - -', font=f, fill=(60, 70, 55))
+    # buttons
+    for k in range(3):
+        bx = w * (0.22 + k * 0.28)
+        dd.ellipse([bx - w * 0.09, h * 0.64, bx + w * 0.09, h * 0.64 + w * 0.13], fill=dk(body, 0.55))
+        dd.ellipse([bx - w * 0.08, h * 0.635, bx + w * 0.08, h * 0.635 + w * 0.11], fill=(235, 235, 230))
+    dd.rounded_rectangle([w * 0.3, h * 0.8, w * 0.7, h * 0.86], 10, fill=dk(body, 0.6))
+    for k in range(5):
+        dd.line([(w * 0.33, h * 0.885 + k * 9), (w * 0.67, h * 0.885 + k * 9)], fill=dk(body, 0.6), width=3)
+    # little red light
+    dd.ellipse([w * 0.8, h * 0.075, w * 0.86, h * 0.105], fill=(255, 70, 70))
+    _PG[key] = out
+    return out
+
+def small_pager(w=150, body=(240, 120, 170), blank=False):
+    return pager(w, body, 1.0, blank)
+
+def heart_sp(r=40, col=(240, 70, 110)):
+    im, d = _ss(r * 2.2, r * 2.2)
+    heart_d(d, r * 1.1 * SS, r * 1.0 * SS, r * SS, col)
+    d.ellipse([r * 0.45 * SS, r * 0.45 * SS, r * 0.75 * SS, r * 0.7 * SS], fill=lt(col, 0.6))
+    return _down(im)
+
+def hearts_burst(img, cx, cy, t, t0, n=9, spread=420, r=46):
+    if t < t0:
+        return
+    u = t - t0
+    for k in range(n):
+        a = math.radians(-160 + 140 * k / max(1, n - 1))
+        sp = spread * (0.7 + 0.3 * ((k * 5) % 3) / 2)
+        k2 = ease_out(min(1, u / 0.8))
+        x = cx + math.cos(a) * sp * k2
+        y = cy + math.sin(a) * sp * k2 - 60 * u
+        sc = (0.5 + 0.5 * ease_back(clamp01(u / 0.3), 2.0)) * (1.0 - 0.3 * clamp01(u - 1.2))
+        put(img, heart_sp(r, [(240, 70, 110), (255, 120, 160), (230, 40, 80)][k % 3]), x, y, sc, 12 * math.sin(u * 4 + k))
+
+def phone97(w=200, n_icons=6):
+    """late-90s candy-bar phone with antenna and a little mono LCD of pixel icons"""
+    h = int(w * 2.6)
+    im, d = _ss(w, h + w * 0.5)
+    s = SS
+    top = int(w * 0.5)
+    d.rounded_rectangle([w * 0.72 * s, 0, w * 0.86 * s, (top + 30) * s], int(w * 0.06) * s, fill=(60, 60, 70))
+    d.rounded_rectangle([0, top * s, w * s - 1, (top + h) * s - 1], int(w * 0.2) * s, fill=(150, 155, 170))
+    d.rounded_rectangle([w * 0.05 * s, (top + h * 0.02) * s, w * 0.95 * s, (top + h * 0.98) * s], int(w * 0.18) * s, fill=(185, 190, 205))
+    d.rounded_rectangle([w * 0.12 * s, (top + h * 0.1) * s, w * 0.88 * s, (top + h * 0.42) * s], int(w * 0.06) * s, fill=(50, 55, 60))
+    d.rectangle([w * 0.18 * s, (top + h * 0.13) * s, w * 0.82 * s, (top + h * 0.39) * s], fill=(165, 200, 150))
+    out = _down(im)
+    cw = int(w * 0.64 / 3 / 12)
+    for k in range(min(n_icons, 6)):
+        ic = pixel_icon(BM_KEYS[k], max(1, cw), (40, 50, 40))
+        out.alpha_composite(ic, (int(w * 0.2 + (k % 3) * w * 0.205), int(top + h * 0.15 + (k // 3) * h * 0.11)))
+    dd = ImageDraw.Draw(out)
+    for r_ in range(4):
+        for c_ in range(3):
+            x = w * (0.22 + c_ * 0.28)
+            y = top + h * (0.52 + r_ * 0.1)
+            dd.rounded_rectangle([x - w * 0.1, y, x + w * 0.1, y + h * 0.06], 8, fill=(235, 235, 240), outline=(120, 120, 130), width=2)
+    return out
+
+def round_face(d, cx, cy, r, kind=0):
+    """generic round yellow face (own simple design)"""
+    d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=(255, 205, 60), outline=(220, 150, 30), width=max(2, int(r * 0.06)))
+    ink = (70, 45, 30)
+    if kind == 0:   # big smile
+        d.ellipse([cx - r * 0.42, cy - r * 0.38, cx - r * 0.18, cy - r * 0.02], fill=ink)
+        d.ellipse([cx + r * 0.18, cy - r * 0.38, cx + r * 0.42, cy - r * 0.02], fill=ink)
+        d.chord([cx - r * 0.55, cy - r * 0.1, cx + r * 0.55, cy + r * 0.62], 0, 180, fill=ink)
+    elif kind == 1:  # heart eyes
+        heart_d(d, cx - r * 0.32, cy - r * 0.2, r * 0.26, (235, 50, 80))
+        heart_d(d, cx + r * 0.32, cy - r * 0.2, r * 0.26, (235, 50, 80))
+        d.arc([cx - r * 0.45, cy - r * 0.1, cx + r * 0.45, cy + r * 0.55], 20, 160, fill=ink, width=max(2, int(r * 0.1)))
+    elif kind == 2:  # wink
+        d.ellipse([cx - r * 0.42, cy - r * 0.38, cx - r * 0.18, cy - r * 0.02], fill=ink)
+        d.arc([cx + r * 0.15, cy - r * 0.3, cx + r * 0.45, cy], 200, 340, fill=ink, width=max(2, int(r * 0.1)))
+        d.arc([cx - r * 0.45, cy - r * 0.1, cx + r * 0.45, cy + r * 0.55], 20, 160, fill=ink, width=max(2, int(r * 0.1)))
+    else:            # surprised
+        d.ellipse([cx - r * 0.4, cy - r * 0.38, cx - r * 0.2, cy - r * 0.08], fill=ink)
+        d.ellipse([cx + r * 0.2, cy - r * 0.38, cx + r * 0.4, cy - r * 0.08], fill=ink)
+        d.ellipse([cx - r * 0.16, cy + r * 0.15, cx + r * 0.16, cy + r * 0.5], fill=ink)
+
+def smartphone(w=260):
+    h = int(w * 2.0)
+    im, d = _ss(w, h)
+    s = SS
+    d.rounded_rectangle([0, 0, w * s - 1, h * s - 1], int(w * 0.16) * s, fill=(35, 35, 45))
+    d.rounded_rectangle([w * 0.05 * s, w * 0.05 * s, w * 0.95 * s, (h - w * 0.05) * s], int(w * 0.13) * s, fill=(130, 190, 240))
+    d.rounded_rectangle([w * 0.38 * s, w * 0.08 * s, w * 0.62 * s, w * 0.14 * s], 10 * s, fill=(35, 35, 45))
+    r = w * 0.14
+    for k in range(6):
+        cx = w * (0.28 + (k % 2) * 0.44)
+        cy = h * (0.25 + (k // 2) * 0.24)
+        round_face(d, cx * s, cy * s, r * s, k % 4)
+    return _down(im)
+
+def envelope(w=130, col=(250, 248, 240), seal=(235, 60, 90)):
+    h = int(w * 0.66)
+    im, d = _ss(w, h)
+    s = SS
+    d.rectangle([0, 0, w * s - 1, h * s - 1], fill=col, outline=(170, 160, 150), width=3 * s)
+    d.line([(0, 0), (w * s / 2, h * s * 0.55), (w * s, 0)], fill=(170, 160, 150), width=3 * s)
+    heart_d(d, w * s / 2, h * s * 0.55, w * 0.1 * s, seal)
+    return _down(im)
+
+def dictionary(w=420, flip=0.0):
+    """big open book seen from the front, a page mid-flip (flip 0..1)"""
+    h = int(w * 0.7)
+    im, d = _ss(w, h)
+    s = SS
+    d.rounded_rectangle([0, h * 0.06 * s, w * s - 1, h * s - 1], 12 * s, fill=(150, 40, 50))
+    d.polygon([(w * 0.03 * s, h * 0.04 * s), (w * 0.5 * s, h * 0.1 * s), (w * 0.5 * s, h * 0.92 * s), (w * 0.03 * s, h * 0.88 * s)], fill=(250, 245, 230))
+    d.polygon([(w * 0.97 * s, h * 0.04 * s), (w * 0.5 * s, h * 0.1 * s), (w * 0.5 * s, h * 0.92 * s), (w * 0.97 * s, h * 0.88 * s)], fill=(245, 238, 220))
+    for k in range(9):
+        y = h * (0.2 + k * 0.075)
+        d.line([(w * 0.08 * s, y * s), (w * 0.44 * s, (y + h * 0.01) * s)], fill=(160, 150, 140), width=3 * s)
+        d.line([(w * 0.56 * s, (y + h * 0.01) * s), (w * 0.92 * s, y * s)], fill=(160, 150, 140), width=3 * s)
+    # flipping page
+    x = w * (0.95 - 0.9 * flip)
+    d.polygon([(w * 0.5 * s, h * 0.1 * s), (x * s, (h * 0.02 - 0.06 * h * math.sin(flip * math.pi)) * s),
+               (x * s, (h * 0.86 - 0.06 * h * math.sin(flip * math.pi)) * s), (w * 0.5 * s, h * 0.92 * s)], fill=(255, 252, 242), outline=(200, 190, 175))
+    return _down(im)
+
+def crt(w=700, content=None):
+    """chunky beige late-90s monitor; content = RGBA image pasted into the screen"""
+    h = int(w * 0.86)
+    im, d = _ss(w, h + int(w * 0.2))
+    s = SS
+    d.rounded_rectangle([0, 0, w * s - 1, h * s - 1], int(w * 0.05) * s, fill=(215, 208, 190), outline=(160, 150, 130), width=4 * s)
+    d.rounded_rectangle([w * 0.07 * s, w * 0.06 * s, w * 0.93 * s, h * 0.82 * s], int(w * 0.04) * s, fill=(45, 50, 55))
+    d.rectangle([w * 0.1 * s, w * 0.09 * s, w * 0.9 * s, h * 0.79 * s], fill=(235, 240, 245))
+    d.polygon([(w * 0.3 * s, h * s), (w * 0.7 * s, h * s), (w * 0.78 * s, (h + w * 0.18) * s), (w * 0.22 * s, (h + w * 0.18) * s)], fill=(190, 182, 165))
+    d.ellipse([w * 0.84 * s, h * 0.87 * s, w * 0.88 * s, h * 0.92 * s], fill=(90, 220, 110))
+    for k in range(4):
+        d.line([(w * (0.1 + k * 0.04) * s, h * 0.9 * s), (w * (0.12 + k * 0.04) * s, h * 0.9 * s)], fill=(160, 150, 130), width=4 * s)
+    out = _down(im)
+    if content is not None:
+        sw, sh_ = int(w * 0.8), int(h * 0.79 - w * 0.09)
+        c = content.resize((sw, sh_), Image.NEAREST) if content.size != (sw, sh_) else content
+        out.alpha_composite(c, (int(w * 0.1), int(w * 0.09)))
+    return out
+
+def screen_content(w, h, mode, n=None, t=0.0):
+    """what the designer's monitor shows. mode 'draw' = big grid heart being drawn, 'set' = many tiny icons"""
+    im = Image.new('RGBA', (w, h), (235, 240, 245, 255))
+    d = ImageDraw.Draw(im)
+    d.rectangle([0, 0, w, 26], fill=(40, 80, 160))
+    for k in range(3):
+        d.rectangle([w - 26 - k * 26, 5, w - 8 - k * 26, 21], fill=(200, 200, 210))
+    if mode == 'draw':
+        cell = int(min(w, h - 40) * 0.85 / 12)
+        ic = pixel_icon('heart', cell, (220, 40, 70), n=n, bg=(255, 255, 255, 255), grid=(170, 175, 185))
+        im.alpha_composite(ic, ((w - ic.width) // 2, 26 + (h - 26 - ic.height) // 2))
+    else:
+        cols, rows = 16, 11
+        cw = (w - 20) / cols
+        ch = (h - 40) / rows
+        cell = max(1, int(min(cw, ch) * 0.8 / 12))
+        shown = n if n is not None else cols * rows
+        for k in range(min(shown, cols * rows)):
+            c_, r_ = k % cols, k // cols
+            kind = BM_KEYS[(k * 7 + r_) % len(BM_KEYS)]
+            ic = pixel_icon(kind, cell, ICOL[BM_KEYS.index(kind)])
+            im.alpha_composite(ic, (int(10 + c_ * cw + (cw - ic.width) / 2), int(32 + r_ * ch + (ch - ic.height) / 2)))
+    return im
+
+def icon_panel(w=520, h=360, frame=(60, 45, 35)):
+    """a framed museum panel: grid of tiny pixel icons on white"""
+    im = Image.new('RGBA', (w + 60, h + 60), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    d.rectangle([0, 0, w + 59, h + 59], fill=frame)
+    d.rectangle([22, 22, w + 37, h + 37], fill=(250, 250, 248))
+    cols, rows = 13, 9
+    cw, ch = (w - 40) / cols, (h - 40) / rows
+    cell = max(1, int(min(cw, ch) * 0.85 / 12))
+    for k in range(cols * rows):
+        c_, r_ = k % cols, k // cols
+        kind = BM_KEYS[(k * 5 + r_ * 3) % len(BM_KEYS)]
+        ic = pixel_icon(kind, cell, ICOL[BM_KEYS.index(kind)])
+        im.alpha_composite(ic, (int(42 + c_ * cw), int(42 + r_ * ch)))
+    return im
+
+def scroll(w=300, h=760, glyph='絵', painting=False, u=1.0):
+    """hanging scroll; u = how far unrolled (0..1)"""
+    hh = max(40, int(h * u))
+    im, d = _ss(w, hh + 60)
+    s = SS
+    d.rectangle([w * 0.08 * s, 30 * s, w * 0.92 * s, (hh + 30) * s], fill=(120, 150, 120))
+    d.rectangle([w * 0.16 * s, 50 * s, w * 0.84 * s, (hh + 10) * s], fill=(250, 244, 225))
+    d.rounded_rectangle([0, 18 * s, w * s - 1, 42 * s], 10 * s, fill=(110, 70, 40))
+    d.rounded_rectangle([0, (hh + 22) * s, w * s - 1, (hh + 48) * s], 10 * s, fill=(110, 70, 40))
+    d.line([(w * 0.3 * s, 18 * s), (w * 0.5 * s, 0), (w * 0.7 * s, 18 * s)], fill=(80, 60, 40), width=4 * s)
+    out = _down(im)
+    if u > 0.55:
+        layer = Image.new('RGBA', (w, h + 60), (0, 0, 0, 0))
+        ld = ImageDraw.Draw(layer)
+        f = ImageFont_cjk(int(w * (0.5 if len(glyph) == 1 else 0.42)))
+        if len(glyph) == 1:
+            gw = f.getlength(glyph)
+            ld.text(((w - gw) / 2, 90), glyph, font=f, fill=(25, 20, 20))
+        else:
+            for k, g in enumerate(glyph):
+                gw = f.getlength(g)
+                ld.text(((w - gw) / 2, 80 + k * int(w * 0.5)), g, font=f, fill=(25, 20, 20))
+        if painting:
+            px0, py0, px1, py1 = w * 0.22, h * 0.5, w * 0.78, h * 0.85
+            ld.rectangle([px0, py0, px1, py1], fill=(225, 235, 240))
+            ld.polygon([(px0, py1), (px0 + (px1 - px0) * 0.35, py0 + 40), (px0 + (px1 - px0) * 0.6, py1 - 50), (px0 + (px1 - px0) * 0.8, py0 + 80), (px1, py1)], fill=(90, 110, 140))
+            ld.ellipse([px1 - 70, py0 + 15, px1 - 30, py0 + 55], fill=(230, 80, 60))
+        out.alpha_composite(layer.crop((0, 0, w, hh + 60)))
+    return out
+
+from PIL import ImageFont
+_CJK = {}
+def ImageFont_cjk(size):
+    if size not in _CJK:
+        _CJK[size] = ImageFont.truetype(FONT_CJK, size)
+    return _CJK[size]
+
+def brush(L=300):
+    im, d = _ss(40, L)
+    s = SS
+    d.rectangle([12 * s, 0, 28 * s, L * 0.75 * s], fill=(150, 100, 50))
+    d.polygon([(8 * s, L * 0.75 * s), (32 * s, L * 0.75 * s), (20 * s, L * s)], fill=(30, 25, 25))
+    return _down(im)
+
+def marker(L=170, col=(40, 40, 45)):
+    im, d = _ss(34, L)
+    s = SS
+    d.rounded_rectangle([4 * s, 0, 30 * s, L * 0.8 * s], 6 * s, fill=(240, 240, 240), outline=(120, 120, 120), width=2 * s)
+    d.rectangle([4 * s, L * 0.55 * s, 30 * s, L * 0.8 * s], fill=col)
+    d.polygon([(8 * s, L * 0.8 * s), (26 * s, L * 0.8 * s), (17 * s, L * s)], fill=col)
+    return _down(im)
+
+# ================================================================ EMOJI plates
+@cached
+def classroom_plate():
+    im = Image.new('RGBA', (PW, PH), (238, 228, 200))
+    d = ImageDraw.Draw(im)
+    d.rectangle([0, 0, PW, 1560], fill=(236, 226, 198))
+    d.rectangle([0, 1180, PW, 1560], fill=(160, 190, 170))
+    d.line([(0, 1180), (PW, 1180)], fill=(120, 150, 130), width=10)
+    # whiteboard
+    d.rectangle([90, 400, 1206, 1080], fill=(170, 175, 185))
+    d.rectangle([110, 420, 1186, 1060], fill=(252, 253, 255))
+    d.rectangle([90, 1080, 1206, 1110], fill=(150, 155, 165))
+    for k, c in enumerate([(220, 50, 50), (40, 90, 200), (40, 150, 80)]):
+        d.rounded_rectangle([700 + k * 70, 1060, 750 + k * 70, 1080], 6, fill=c)
+    # clock-free wall details: flag-less pennant string + poster
+    for k in range(10):
+        x = 60 + k * 125
+        d.polygon([(x, 180), (x + 110, 180), (x + 55, 270)], fill=[(240, 120, 150), (120, 190, 240), (250, 210, 90)][k % 3])
+    d.line([(40, 180), (PW - 40, 180)], fill=(120, 100, 90), width=4)
+    d.rectangle([1000, 260, 1200, 360], fill=(250, 250, 250), outline=(200, 190, 170), width=4)
+    for k in range(4):
+        d.rectangle([1020 + k * 45, 280, 1050 + k * 45, 340], fill=[(240, 90, 90), (90, 170, 240), (250, 200, 70), (120, 200, 120)][k])
+    wood_floor(d, 1560, (190, 150, 110))
+    return finish_plate(im, 0.35, 31)
+
+def school_desk(img, cx, y, w=520):
     d = ImageDraw.Draw(img)
-    if u > 0:
-        ph = clamp01((t - t_slice) / 0.8)
-        for k in range(10):
-            x = cutx + (k - 5) * 22 * ph * 3
-            y = 1560 - 160 * math.sin(ph * math.pi) * (0.5 + (k % 3) * 0.3) + 40 * ph
-            d.ellipse([x - 8, y - 6, x + 8, y + 6], fill=(150, 95, 55))
-    return P_
+    floor_shadow(img, cx, y + 260, w * 0.6, 0.3)
+    d.polygon([(cx - w / 2, y), (cx + w / 2, y), (cx + w / 2 + 30, y + 50), (cx - w / 2 - 30, y + 50)], fill=(225, 185, 130))
+    d.rectangle([cx - w / 2 - 30, y + 50, cx + w / 2 + 30, y + 80], fill=(180, 140, 95))
+    for x in (cx - w / 2, cx + w / 2 - 20):
+        d.rectangle([x, y + 80, x + 20, y + 300], fill=(120, 120, 130))
+    d.rectangle([cx - 120, y - 12, cx + 40, y + 6], fill=(250, 250, 250), outline=(180, 180, 190))
+    d.rectangle([cx + 80, y - 30, cx + 200, y + 4], fill=(90, 140, 220))
 
-class N0(Sc):
-    def events(self):
-        return [(self.we('brick') - 0.03, 'bigpop', 0.45), (self.we('slice') - 0.05, 'scratch', 0.6)]
-    def shots(self):
-        b = self.we('brick')
-        return [(0.0, 1.08, 1.12, CX - 40, 1080), (b, 1.2, 1.25, CX - 40, 1180), (self.we('had'), 1.3, 1.36, CX + 40, 1260)]
-    def plate(self):
-        return counter_plate(0)
-    def dyn(self, img, t):
-        brick_scene(img, t, self.we('slice') - 0.05, 'shocked')
+@cached
+def tokyo_plate():
+    arr = vgrad(PW, PH, [(0, '#3B2C6B'), (0.3, '#E7768A'), (0.5, '#F6B27A'), (1, '#F6B27A')])
+    im = to_img(arr).convert('RGBA')
+    d = ImageDraw.Draw(im)
+    rng = np.random.default_rng(5)
+    # far buildings
+    x = -40
+    while x < PW:
+        bw = rng.integers(120, 220)
+        bh = rng.integers(500, 1000)
+        d.rectangle([x, 1450 - bh, x + bw, 1450], fill=(70, 60, 110))
+        for wy in range(1450 - bh + 30, 1430, 50):
+            for wx in range(x + 18, x + bw - 20, 40):
+                if rng.random() < 0.55:
+                    d.rectangle([wx, wy, wx + 18, wy + 24], fill=(255, 225, 150))
+        x += bw + 10
+    # near buildings with vertical glowing signs (no text)
+    for (bx, bw, top, col) in ((0, 300, 520, (120, 80, 120)), (980, 316, 440, (90, 70, 130))):
+        d.rectangle([bx, top, bx + bw, 1500], fill=col)
+        for k in range(5):
+            sy = top + 60 + k * 170
+            sc = [(255, 90, 140), (90, 220, 255), (255, 210, 80), (140, 255, 160), (255, 140, 60)][k]
+            sx = bx + bw - 80 if bx == 0 else bx + 20
+            d.rounded_rectangle([sx, sy, sx + 60, sy + 140], 10, fill=sc, outline=(255, 255, 255), width=4)
+            for j in range(3):
+                d.rectangle([sx + 18, sy + 18 + j * 40, sx + 42, sy + 40 + j * 40], fill=lt(sc, 0.6))
+    # vending machine
+    d.rectangle([340, 1080, 560, 1500], fill=(230, 60, 70))
+    d.rectangle([360, 1100, 540, 1300], fill=(220, 235, 245))
+    for r_ in range(3):
+        for c_ in range(4):
+            d.rounded_rectangle([372 + c_ * 42, 1112 + r_ * 62, 400 + c_ * 42, 1160 + r_ * 62], 6, fill=[(90, 160, 230), (250, 200, 60), (120, 200, 120), (240, 120, 160)][c_])
+    d.rectangle([380, 1400, 520, 1450], fill=(60, 30, 35))
+    # street lamp
+    d.rectangle([880, 820, 900, 1500], fill=(60, 60, 70))
+    d.ellipse([850, 790, 930, 850], fill=(255, 240, 190))
+    # sidewalk + crosswalk
+    d.rectangle([0, 1500, PW, PH], fill=(120, 115, 130))
+    d.rectangle([0, 1500, PW, 1540], fill=(170, 165, 175))
+    for k in range(7):
+        y0 = 1620 + k * 95
+        d.polygon([(100 - k * 20, y0), (PW - 100 + k * 20, y0), (PW - 90 + k * 22, y0 + 50), (90 - k * 22, y0 + 50)], fill=(235, 235, 240))
+    return finish_plate(im, 0.35, 32)
 
-# 1  And it only exists because there wasn't enough chocolate.
-class N1(Sc):
-    def events(self):
-        e = [(0.05, 'swipe', 0.3), (self.we('wasn') - 0.05, 'thud', 0.45)]
-        return e
-    def shots(self):
-        return [(0.0, 1.0, 1.05, CX, 1152), (self.we('because'), 1.18, 1.24, CX, 1000), (self.we('enough'), 1.1, 1.14, CX + 80, 1250)]
-    def plate(self):
-        return shop_plate()
-    def dyn(self, img, t):
-        wz = self.we('wasn')
-        sad = t > wz
-        # chocolate bars vanish from the gap
-        d = ImageDraw.Draw(img)
-        n = 4 if t < self.we('because') else max(0, 4 - int((t - self.we('because')) / 0.35))
-        for k in range(n):
-            x = 500 + k * 80
-            d.rectangle([x, 560, x + 62, 680], fill=(110, 60, 35), outline=(70, 35, 20), width=4)
-            d.rectangle([x, 600, x + 62, 640], fill=(220, 190, 120))
-        a = P(img, SHOPKEEP, 760, 2150, t, 'sad' if sad else 'nervous', talk=talk_frame(t) and not sad,
-              arm_l=95 + 8 * math.sin(t * 10), arm_r=20, scale=0.98)
-        P(img, NKID, 250, 2240, t, 'sad' if sad else 'think', arm_l=20, arm_r=130 if not sad else 30, scale=0.85, phase=2)
-        shop_counter(img, 1620)
-        # the shopkeeper tips an empty cocoa tin upside down
-        hx, hy = a['hand_l']
-        im, dd = _ss(170, 200)
-        dd.rectangle([0, 0, 340, 400], fill=(150, 90, 50), outline=(90, 50, 25), width=10)
-        dd.rectangle([0, 130, 340, 270], fill=(240, 220, 170))
-        dd.ellipse([120, 150, 220, 250], fill=(110, 60, 30))
-        tin = _down(im)
-        put(img, tin, hx - 40, hy - 60, 1.0, 160 + 15 * math.sin(t * 12))
-        if sad:
-            for k in range(3):
-                ph = ((t - wz) * 1.5 + k / 3) % 1
-                d.ellipse([hx - 50 + k * 10, hy + 40 + ph * 400, hx - 40 + k * 10, hy + 50 + ph * 400], fill=(110, 60, 30))
+@cached
+def designer_plate():
+    im = Image.new('RGBA', (PW, PH), (70, 80, 110))
+    d = ImageDraw.Draw(im)
+    for x in range(0, PW, 110):
+        d.rectangle([x, 0, x + 55, 1500], fill=(76, 86, 116))
+    window(d, 90, 220, 540, 700, 'city', (210, 210, 220))
+    d.rectangle([110, 240, 520, 680], fill=None)
+    # shelf with binders and floppy disks
+    d.rectangle([700, 420, 1240, 440], fill=(150, 105, 65))
+    for k in range(9):
+        d.rectangle([720 + k * 55, 250, 765 + k * 55, 420], fill=[(220, 80, 80), (80, 140, 220), (240, 200, 80), (90, 180, 120)][k % 4], outline=(40, 40, 50), width=3)
+    d.rectangle([700, 700, 1240, 720], fill=(150, 105, 65))
+    for k in range(6):
+        d.rectangle([730 + k * 80, 620, 790 + k * 80, 700], fill=[(40, 40, 50), (60, 90, 160), (160, 50, 60)][k % 3])
+        d.rectangle([745 + k * 80, 625, 775 + k * 80, 650], fill=(200, 200, 210))
+    # cork board with paper sketches of tiny icons
+    d.rectangle([140, 800, 560, 1120], fill=(190, 140, 90), outline=(120, 85, 50), width=10)
+    for k in range(5):
+        x, y = 170 + (k % 3) * 125, 830 + (k // 3) * 140
+        d.rectangle([x, y, x + 100, y + 110], fill=(250, 250, 245))
+        ic = pixel_icon(BM_KEYS[k + 1], 6, (60, 60, 70))
+        im.alpha_composite(ic, (x + 14, y + 18))
+        d.ellipse([x + 44, y - 6, x + 56, y + 6], fill=(220, 40, 40))
+    d.rectangle([0, 1560, PW, PH], fill=(90, 85, 95))
+    for k in range(-6, 7):
+        d.line([(CX + k * 90, 1560), (CX + k * 320, PH)], fill=(80, 75, 85), width=4)
+    return finish_plate(im, 0.45, 33)
 
-# 2  So how did a brick become the spread everyone loves?
-class N2(Sc):
-    def events(self):
-        return [(0.05, 'pop', 0.4), (self.we('become') - 0.05, 'bigpop', 0.5), (self.we('spread') - 0.05, 'squeak', 0.4)]
-    def shots(self):
-        return [(0.0, 1.0, 1.05, CX, 1152), (self.we('become'), 1.15, 1.2, CX - 40, 1350), (self.we('everyone'), 1.08, 1.12, CX + 60, 1200)]
-    def plate(self):
-        return kitchen_plate()
-    def dyn(self, img, t):
-        bc = self.we('become')
-        ev = self.we('everyone')
-        expr = 'think' if t < bc else ('shocked' if t < ev else 'happy')
-        a = P(img, NTEEN, 840, 2080, t, expr, talk=talk_frame(t) and t < bc, arm_l=110 + 15 * math.sin(t * 6), arm_r=150 if t < bc else 40, scale=0.98, look_dir=-1)
-        table_front(img, 1640, (230, 120, 140), (245, 170, 185))
-        u = clamp01((t - bc) / 0.4)
-        if u < 1:
-            lf = loaf(420, 420, True)
-            put(img, lf, 330, 1640 - 210 + 20 * u, 1 - u)
-        if u > 0:
-            j = jar(360)
-            floor_shadow(img, 330, 1650, 230, 0.3)
-            put(img, j, 330, 1640 - 236, 0.4 + 0.6 * ease_back(u, 2.0))
-        hx, hy = a['hand_l']
-        put(img, bread(230, spread=clamp01((t - bc) / 1.0)), hx, hy - 70, 1.0, -12 + 4 * math.sin(t * 5))
-        if t >= ev:
-            d = ImageDraw.Draw(img)
-            for k in range(5):
-                ph = ((t - ev) * 0.8 + k / 5) % 1
-                heart_d(d, 330 + (k - 2) * 70, 1150 - ph * 300, 26 * (1 - ph * 0.5), (240, 90, 130))
+def desk_front(img, y, top=(200, 160, 115), front=(150, 110, 75)):
+    d = ImageDraw.Draw(img)
+    d.rectangle([-20, y, PW + 20, y + 50], fill=top)
+    d.line([(-20, y), (PW + 20, y)], fill=lt(top, 0.3), width=6)
+    d.rectangle([-20, y + 50, PW + 20, PH], fill=front)
+    for x in (60, 700):
+        d.rectangle([x, y + 90, x + 520, y + 230], outline=dk(front, 0.8), width=6)
+        d.rounded_rectangle([x + 230, y + 150, x + 290, y + 166], 6, fill=(210, 200, 180))
 
-# 3  After World War Two, cocoa was super hard to get.
-class N3(Sc):
-    def events(self):
-        return [(0.05, 'wind', 0.4), (self.we('cocoa') - 0.03, 'pop', 0.4), (self.we('hard') - 0.05, 'thud', 0.4)]
-    def shots(self):
-        return [(0.0, 1.0, 1.05, CX, 1152), (self.we('cocoa'), 1.2, 1.26, CX, 1300), (self.we('hard'), 1.12, 1.16, CX - 60, 1150)]
-    def plate(self):
-        return street_plate()
-    def dyn(self, img, t):
-        h = self.we('hard')
-        P(img, VENDOR, 640, 1900, t, 'sad' if t > h else 'nervous', arm_l=150 if t > h else 40, arm_r=150 if t > h else 40, scale=0.8, phase=1)
-        stall_table(img, 1520)
-        P(img, PIETRO, 1050, 2250, t, 'think' if t < h else 'sad', talk=talk_frame(t) and t < h, arm_l=100 + 10 * math.sin(t * 6), arm_r=20, scale=0.95, look_dir=-1)
-        P(img, dict(PRESETS['grandma'], hair_color=(70, 50, 40), glasses=False, top=(90, 140, 200)), 230, 2230, t, 'shocked' if t > h else 'smile', arm_l=20, arm_r=110, scale=0.9, phase=2, look_dir=1)
+@cached
+def museum_plate():
+    im = Image.new('RGBA', (PW, PH), (240, 238, 232))
+    d = ImageDraw.Draw(im)
+    d.rectangle([0, 0, PW, 160], fill=(225, 222, 215))
+    for x in range(100, PW, 360):
+        d.rectangle([x, 140, x + 160, 165], fill=(70, 70, 75))
+    d.rectangle([0, 1480, PW, 1510], fill=(200, 195, 185))
+    # spotlight cones
+    for cx in (CX, 140, PW - 140):
+        cone = Image.new('RGBA', (PW, PH), (0, 0, 0, 0))
+        ImageDraw.Draw(cone).polygon([(cx - 40, 165), (cx + 40, 165), (cx + 380, 1480), (cx - 380, 1480)], fill=(255, 248, 220, 70))
+        cone = cone.filter(ImageFilter.GaussianBlur(30))
+        im.alpha_composite(cone)
+    # side frames (abstract paintings)
+    d.rectangle([-60, 560, 230, 980], fill=(60, 45, 35))
+    d.rectangle([-40, 580, 210, 960], fill=(90, 160, 200))
+    d.ellipse([20, 640, 170, 790], fill=(240, 200, 70))
+    d.rectangle([PW - 230, 600, PW + 60, 940], fill=(60, 45, 35))
+    d.rectangle([PW - 210, 620, PW + 40, 920], fill=(230, 110, 90))
+    d.rectangle([PW - 170, 700, PW - 60, 860], fill=(250, 230, 200))
+    # label plaque under the centre panel
+    d.rectangle([CX - 80, 1060, CX + 80, 1130], fill=(250, 250, 250), outline=(180, 175, 170), width=3)
+    for k in range(3):
+        d.line([(CX - 60, 1078 + k * 18), (CX + 60 - k * 30, 1078 + k * 18)], fill=(150, 150, 150), width=5)
+    # wood floor + bench + rope posts
+    wood_floor(d, 1510, (170, 130, 95))
+    return finish_plate(im, 0.3, 34)
 
-# 4  So pastry chef Pietro Ferrero got creative.
-class N4(Sc):
-    def events(self):
-        return [(0.05, 'pop', 0.4), (self.we('creative') - 0.05, 'ding', 0.6)]
-    def shots(self):
-        return [(0.0, 1.0, 1.06, CX, 1152), (self.we('Pietro'), 1.2, 1.26, CX, 1150), (self.we('creative'), 1.12, 1.16, CX + 40, 1250)]
-    def plate(self):
-        return pastry_plate()
-    def dyn(self, img, t):
-        c = self.we('creative')
-        on = t >= c - 0.1
-        a = P(img, PIETRO, CX, 2050, t, 'happy' if on else 'think', talk=talk_frame(t) and not on,
-              arm_l=150 if on else 40, arm_r=(160 if on else 110) + 8 * math.sin(t * 8), scale=1.0)
-        display_case(img, 1560)
-        # basket of hazelnuts on the case
-        d = ImageDraw.Draw(img)
-        d.chord([820, 1420, 1180, 1660], 180, 360, fill=(200, 150, 90))
-        nut_heap(img, 1000, 1545, 170, 90, 3, 22)
-        d.rectangle([820, 1530, 1180, 1580], fill=(180, 130, 75))
-        hx, hy = a['hand_r']
-        put(img, nut(54), hx, hy - 60 - (30 if on else 0) * math.sin(clamp01((t - c) / 0.3) * math.pi), 1.0, 10 * math.sin(t * 4))
-        if on:
-            u = t - c
-            for k in range(8):
-                ang = k * math.pi / 4 + u
-                r = 110 + 30 * math.sin(u * 6)
-                sparkle(d, hx + math.cos(ang) * r, hy - 60 + math.sin(ang) * r, 20)
+def museum_front(img, y=1700):
+    d = ImageDraw.Draw(img)
+    for x in (140, PW - 140):
+        floor_shadow(img, x, y + 10, 80, 0.3)
+        d.rectangle([x - 10, y - 260, x + 10, y], fill=(200, 170, 60))
+        d.ellipse([x - 26, y - 290, x + 26, y - 240], fill=(220, 190, 70))
+        d.ellipse([x - 50, y - 16, x + 50, y + 10], fill=(200, 170, 60))
+    d.arc([140, y - 400, PW - 140, y - 120], 20, 160, fill=(170, 30, 50), width=18)
 
-# 5  He used mostly hazelnuts and a little cocoa.
-class N5(Sc):
-    def events(self):
-        e = [(0.05, 'rattle', 0.5), (self.we('hazelnuts'), 'rattle', 0.5), (self.we('little') - 0.03, 'pop', 0.35)]
-        return e
-    def shots(self):
-        return [(0.0, 1.05, 1.1, CX, 1152), (self.we('hazelnuts'), 1.22, 1.28, CX + 40, 1250), (self.we('little'), 1.4, 1.46, CX + 160, 1100)]
-    def plate(self):
-        return counter_plate(1)
-    def dyn(self, img, t):
-        lt_ = self.we('little')
-        a = P(img, PIETRO, 300, 2120, t, 'proud' if t > lt_ else 'happy', arm_l=20, arm_r=100 + 15 * math.sin(t * 7), scale=0.95)
-        counter_front(img, 1660, (235, 225, 210), (170, 110, 80))
-        bw = bowl(640, 1.0)
-        bx, by = 760, 1660 - bw.height / 2 + 10
-        floor_shadow(img, bx, 1680, 360, 0.3)
-        # heap inside bowl grows
-        g = clamp01(t / max(0.5, lt_))
-        put(img, bw, bx, by)
-        nut_heap(img, bx, by - bw.height * 0.32, 230, 40 + 120 * g, 5, 24)
-        # stream of falling nuts from a scoop
-        d = ImageDraw.Draw(img)
-        if t < lt_ + 0.2:
-            for k in range(14):
-                ph = (t * 2.2 + k / 14) % 1
-                x = bx - 40 + math.sin(k * 2.1) * 50
-                y = 650 + ph * (by - bw.height * 0.3 - 650)
-                put(img, nut(26, (k * 40) % 360), x, y)
-            d.polygon([(bx - 200, 540), (bx + 120, 560), (bx + 60, 680), (bx - 150, 660)], fill=(200, 205, 212), outline=(140, 145, 155))
-        # tiny spoon of cocoa
-        if t >= lt_ - 0.3:
-            u = clamp01((t - (lt_ - 0.3)) / 0.5)
-            sx, sy = bx + 300, 1050 + 150 * u
-            d.line([(sx, sy), (sx + 220, sy - 160)], fill=(190, 190, 198), width=14)
-            d.ellipse([sx - 45, sy - 25, sx + 35, sy + 25], fill=(190, 190, 198))
-            if u < 1:
-                d.ellipse([sx - 35, sy - 30, sx + 25, sy + 5], fill=(80, 45, 25))
-            else:
-                ph = clamp01((t - lt_ - 0.2) / 0.6)
-                for k in range(12):
-                    px = sx - 20 + (k - 6) * 9 * (1 + ph)
-                    py = sy + ph * 230 + (k % 3) * 10
-                    d.ellipse([px - 7, py - 7, px + 7, py + 7], fill=(80, 45, 25))
+@cached
+def stage_plate():
+    im = Image.new('RGBA', (PW, PH), (110, 20, 40))
+    d = ImageDraw.Draw(im)
+    for x in range(0, PW, 90):
+        d.rectangle([x, 0, x + 45, 1520], fill=(135, 30, 55))
+        d.line([(x + 44, 0), (x + 44, 1520)], fill=(90, 15, 35), width=6)
+    d.rectangle([0, 0, PW, 170], fill=(160, 35, 60))
+    for x in range(0, PW, 130):
+        d.chord([x - 10, 110, x + 140, 240], 0, 180, fill=(160, 35, 60))
+    d.rectangle([0, 0, PW, 30], fill=(220, 180, 70))
+    # string lights
+    for k in range(16):
+        x = 40 + k * 80
+        y = 300 + 40 * math.sin(k * 0.8)
+        d.ellipse([x - 14, y - 14, x + 14, y + 14], fill=[(255, 230, 120), (255, 140, 180), (150, 220, 255)][k % 3])
+    d.rectangle([0, 1520, PW, PH], fill=(80, 60, 70))
+    d.rectangle([0, 1520, PW, 1560], fill=(60, 45, 55))
+    for k in range(-6, 7):
+        d.line([(CX + k * 90, 1560), (CX + k * 320, PH)], fill=(70, 52, 62), width=4)
+    sp = Image.new('RGBA', (PW, PH), (0, 0, 0, 0))
+    ImageDraw.Draw(sp).ellipse([CX - 600, 1500, CX + 600, 2000], fill=(255, 240, 200, 70))
+    im.alpha_composite(sp.filter(ImageFilter.GaussianBlur(40)))
+    return finish_plate(im, 0.5, 35)
 
-# 6  In 1946, it was a solid loaf people sliced onto bread.
-class N6(Sc):
-    def events(self):
-        e = [(0.05, 'rustle', 0.5), (self.we('solid') - 0.03, 'thud', 0.5)]
-        for k in range(3):
-            e.append((self.ct(k), 'scratch', 0.45))
-        return e
-    def ct(self, k):
-        a = self.we('people')
-        return a + 0.6 * k
-    def shots(self):
-        return [(0.0, 1.0, 1.05, CX, 1152), (self.we('solid'), 1.2, 1.26, CX - 40, 1400), (self.we('people'), 1.08, 1.12, CX, 1250)]
-    def plate(self):
-        return dining_plate()
-    def dyn(self, img, t):
-        pe = self.we('people')
-        a = P(img, MAMMA, 330, 1930, t, 'happy' if t > pe else 'smile', talk=talk_frame(t) and t < pe,
-              arm_l=20, arm_r=100 + (25 * math.sin((t - pe) * 10) if t > pe else 0), scale=0.95)
-        kids_n = 0 if t < pe else min(3, 1 + int((t - pe) / 0.6))
-        k_ = P(img, NKID, 1040, 1960, t, 'happy' if kids_n else 'shocked', arm_l=120 + 10 * math.sin(t * 8), arm_r=20, scale=0.85, phase=2, look_dir=-1)
-        cloth_table(img, 1620)
-        board(img, 660, 1620, 520)
-        lf = loaf(420, 400, True)
-        floor_shadow(img, 660, 1630, 260, 0.3)
-        put(img, lf, 660, 1620 - lf.height / 2)
-        hx, hy = a['hand_r']
-        put(img, knife(300), hx + 110, hy, 1.0, -30 + (20 * math.sin((t - pe) * 10) if t > pe else 0))
-        kx, ky = k_['hand_l']
-        put(img, bread(230, slab=kids_n > 0), kx, ky - 60, 1.0, 8 * math.sin(t * 4))
-        # finished slices on plates
-        d = ImageDraw.Draw(img)
-        for k in range(kids_n - 1):
-            d.ellipse([900 + k * 150 - 70, 1700, 900 + k * 150 + 70, 1760], fill=(250, 250, 250), outline=(80, 120, 190), width=6)
-            put(img, bread(130, slab=True), 900 + k * 150, 1690)
-        chip_at(img, '1946', 1000, 720, t, self.we('1946'), dot=(215, 60, 60))
+def podium(img, y=1720):
+    d = ImageDraw.Draw(img)
+    blocks = [(CX - 560, CX - 200, 380, '2', (190, 195, 205)), (CX - 200, CX + 200, 560, '1', (245, 200, 70)), (CX + 200, CX + 560, 260, '3', (215, 140, 80))]
+    floor_shadow(img, CX, y + 20, 800, 0.35)
+    for x0, x1, hgt, lab, c in blocks:
+        d.rectangle([x0, y - hgt, x1, y], fill=c, outline=dk(c, 0.7), width=6)
+        d.rectangle([x0, y - hgt, x1, y - hgt + 30], fill=lt(c, 0.35))
+        f = font(150)
+        d.text(((x0 + x1) / 2 - f.getlength(lab) / 2, y - hgt + 60), lab, font=f, fill=(255, 255, 255), stroke_width=6, stroke_fill=dk(c, 0.6))
+    return {'1': (CX, y - 560), '2': (CX - 380, y - 380), '3': (CX + 380, y - 260)}
 
-# 7  In 1951, it became a creamy spread called Supercrema.
-class N7(Sc):
-    def events(self):
-        return [(0.05, 'tick', 0.4), (self.we('creamy') - 0.05, 'bloop', 0.5), (self.we('called') - 0.05, 'ding', 0.5)]
-    def shots(self):
-        return [(0.0, 1.0, 1.05, CX, 1152), (self.we('creamy'), 1.2, 1.26, CX - 60, 1250), (self.we('called'), 1.1, 1.14, CX + 80, 1350)]
-    def plate(self):
-        return factory_plate()
-    def dyn(self, img, t):
-        cr = self.we('creamy')
-        d = ImageDraw.Draw(img)
-        # swirling cream visible in vat window
-        d.ellipse([200, 860, 580, 940], fill=(105, 62, 32))
-        for k in range(3):
-            a0 = (t * 200 + k * 120) % 360
-            d.arc([230 + k * 40, 870 + k * 6, 550 - k * 40, 930 - k * 6], a0, a0 + 120, fill=(160, 105, 65), width=8)
-        # filler nozzle stream
-        conveyor(img, 1560, t)
-        off = (t * 160) % 260
-        for k in range(-1, 6):
-            x = k * 260 + off - 60
-            near = abs(x - 820) < 70
-            put(img, jar(170, lid=not near and x > 820, level=1.0 if x > 820 else (0.6 if near else 0.0)), x, 1560 - 112)
-        d.rectangle([810, 1300, 830, 1450], fill=(105, 62, 32))
-        a = P(img, WORKERN, 1060, 2300, t, 'happy' if t > cr else 'smile', talk=talk_frame(t) and t < cr,
-              arm_l=140 + 10 * math.sin(t * 7) if t > cr else 60, arm_r=30, scale=0.9, look_dir=-1)
-        hx, hy = a['hand_l']
-        if t > cr:
-            put(img, bread(200, spread=1.0), hx, hy - 60, 1.0, -10)
-        chip_at(img, '1951', 1000, 820, t, self.we('1951'), dot=(60, 150, 220))
+@cached
+def phoneshop_plate():
+    im = Image.new('RGBA', (PW, PH), (225, 235, 245))
+    d = ImageDraw.Draw(im)
+    d.rectangle([0, 0, PW, 140], fill=(40, 120, 200))
+    for x in range(30, PW, 200):
+        d.rectangle([x, 40, x + 140, 100], fill=(250, 250, 255))
+    # wall of display shelves holding generic phones
+    for sy in (430, 760, 1090):
+        d.rectangle([60, sy, PW - 60, sy + 24], fill=(250, 250, 250), outline=(170, 180, 190), width=3)
+        for k in range(8):
+            x = 110 + k * 140
+            c = [(60, 60, 70), (200, 60, 80), (70, 130, 220), (230, 230, 235)][(k + sy // 330) % 4]
+            d.rounded_rectangle([x, sy - 200, x + 80, sy - 10], 14, fill=c, outline=(40, 40, 50), width=3)
+            d.rounded_rectangle([x + 10, sy - 185, x + 70, sy - 70], 6, fill=(150, 200, 235))
+            d.rectangle([x + 20, sy + 4, x + 60, sy + 20], fill=(255, 220, 80))
+    d.rectangle([0, 1500, PW, PH], fill=(200, 205, 215))
+    for k in range(-6, 7):
+        d.line([(CX + k * 90, 1500), (CX + k * 320, PH)], fill=(185, 190, 200), width=4)
+    return finish_plate(im, 0.3, 36)
 
-# 8  In 1964, his son Michele renamed it Nutella.
-class N8(Sc):
-    def events(self):
-        return [(0.05, 'pop', 0.4), (self.we('renamed') - 0.05, 'riser', 0.35), (self.we('renamed') + 0.35, 'party', 0.45)]
-    def shots(self):
-        return [(0.0, 1.0, 1.05, CX, 1152), (self.we('Michele'), 1.18, 1.24, CX - 120, 1150), (self.we('renamed'), 1.1, 1.16, CX - 40, 1050)]
-    def plate(self):
-        return office_plate()
-    def dyn(self, img, t):
-        rn = self.we('renamed')
-        on = t >= rn
-        a = P(img, MICHELE, 470, 2080, t, 'proud' if on else 'smile', talk=talk_frame(t) and not on,
-              arm_l=20, arm_r=(165 if on else 90) + 5 * math.sin(t * 8), scale=1.0)
-        P(img, PARTNER, 1060, 2120, t, 'happy' if on else 'think', arm_l=(130 + 25 * math.sin(t * 14)) if on else 30, arm_r=(130 + 25 * math.sin(t * 14 + 1)) if on else 30, scale=0.9, phase=1, look_dir=-1)
-        table_front(img, 1700, (120, 85, 60), (160, 115, 80))
-        hx, hy = a['hand_r']
-        put(img, jar(330), hx, hy - 190, 1.0, 4 * math.sin(t * 5))
-        if on:
-            d = ImageDraw.Draw(img)
-            u = t - rn
-            for k in range(14):
-                ang = math.radians(k * 360 / 14 + u * 40)
-                r = 220 + 60 * (u % 1)
-                sparkle(d, hx + math.cos(ang) * r, hy - 190 + math.sin(ang) * r, 18, [(255, 230, 120), (255, 255, 255), (250, 160, 190)][k % 3])
-        chip_at(img, '1964', 1000, 760, t, self.we('1964'), dot=(200, 120, 60))
+def glass_counter(img, y=1620):
+    d = ImageDraw.Draw(img)
+    d.rectangle([-20, y, PW + 20, y + 40], fill=(245, 248, 250))
+    ov = Image.new('RGBA', (PW + 40, PH - y), (170, 210, 230, 120))
+    paste_at(img, ov, -20, y + 40)
+    d.line([(-20, y + 40), (PW + 20, y + 40)], fill=(255, 255, 255), width=6)
+    for k in range(6):
+        x = 80 + k * 210
+        d.rounded_rectangle([x, y + 140, x + 90, y + 320], 14, fill=[(60, 60, 70), (230, 230, 235), (200, 60, 80)][k % 3])
 
-# 9  Nut, for hazelnut, plus ella, a sweet-sounding Italian ending.
-class N9(Sc):
+@cached
+def tatami_plate():
+    im = Image.new('RGBA', (PW, PH), (235, 220, 185))
+    d = ImageDraw.Draw(im)
+    # shoji screens
+    d.rectangle([0, 0, PW, 1460], fill=(110, 80, 50))
+    for x0 in range(20, PW, 324):
+        d.rectangle([x0, 60, x0 + 300, 1440], fill=(250, 245, 230))
+        for gx in range(x0, x0 + 301, 75):
+            d.line([(gx, 60), (gx, 1440)], fill=(140, 105, 70), width=8)
+        for gy in range(60, 1441, 115):
+            d.line([(x0, gy), (x0 + 300, gy)], fill=(140, 105, 70), width=8)
+    d.rectangle([0, 1440, PW, 1480], fill=(100, 70, 45))
+    # tatami floor
+    d.rectangle([0, 1480, PW, PH], fill=(200, 195, 130))
+    for k in range(-5, 6):
+        d.line([(CX + k * 130, 1480), (CX + k * 420, PH)], fill=(170, 165, 105), width=4)
+    d.line([(0, 1800), (PW, 1800)], fill=(60, 70, 50), width=14)
+    return finish_plate(im, 0.35, 37)
+
+def low_table(img, cx, y, w=640):
+    d = ImageDraw.Draw(img)
+    floor_shadow(img, cx, y + 140, w * 0.6, 0.3)
+    d.polygon([(cx - w / 2, y), (cx + w / 2, y), (cx + w / 2 + 40, y + 60), (cx - w / 2 - 40, y + 60)], fill=(130, 60, 40))
+    d.rectangle([cx - w / 2 - 40, y + 60, cx + w / 2 + 40, y + 90], fill=(95, 40, 25))
+    for x in (cx - w / 2 - 10, cx + w / 2 - 10):
+        d.rectangle([x, y + 90, x + 30, y + 160], fill=(95, 40, 25))
+    d.rectangle([cx - 200, y + 8, cx + 40, y + 40], fill=(250, 248, 240))
+    d.rounded_rectangle([cx + 90, y + 6, cx + 190, y + 40], 8, fill=(40, 40, 45))
+
+# ================================================================ characters (same person = same look)
+GIRL = dict(PRESETS['girl'], top=(240, 110, 160))
+BFF = dict(PRESETS['boy'], top=(90, 170, 230), hat=None, hair='messy', hair_color=(60, 40, 30))
+JP1 = dict(PRESETS['girl'], skin='light', hair='long', hair_color=(30, 25, 30), top=(250, 200, 70), bottom=(70, 70, 110))
+JP2 = dict(PRESETS['girl'], skin='light', hair='ponytail', hair_color=(35, 25, 25), top=(120, 210, 190), bottom=(200, 80, 110))
+EXEC2 = dict(PRESETS['boss'], skin='light', hair='side', hair_color=(30, 25, 25), top=(50, 60, 90), tie=(200, 60, 70))
+KURITA = dict(PRESETS['boss'], skin='light', hair='short', hair_color=(30, 25, 25), top=(235, 235, 240), bottom=(60, 65, 85), tie=None, glasses=True)
+GRAN = dict(PRESETS['grandma'])
+CLERK = dict(PRESETS['salesman'], hat=None, top=(40, 120, 200), tie=(250, 200, 60))
+TEACH = dict(PRESETS['grandma'], hair_color=(60, 50, 50), glasses=False, top=(120, 60, 80))
+
+# ================================================================ scenes
+def wx(sc, word, which='t0', nth=0):
+    """exact (case-insensitive, punctuation stripped) word match"""
+    k = 0
+    for w in sc.words:
+        if w['w'].strip(',.:;?!').lower() == word.lower():
+            if k == nth:
+                return w[which]
+            k += 1
+    raise KeyError(word)
+
+PAGER_BODY = (70, 190, 200)
+
+def giant_pager(img, t, cx=470, bottom=1700, w=600, t_heart=None, blank=False):
+    pulse = 1.0
+    if t_heart is not None and t >= t_heart:
+        u = t - t_heart
+        pulse = 1.0 + 0.35 * math.sin(min(u, 0.5) / 0.5 * math.pi) + 0.06 * math.sin(u * 9) * (u > 0.5)
+    sp = pager(w, PAGER_BODY, round(pulse, 2), blank)
+    floor_shadow(img, cx, bottom + 10, w * 0.55, 0.4)
+    rot = 2.5 * math.sin(t * 3.2)
+    cy = bottom - sp.height / 2 - 18 * abs(math.sin(t * 6.4)) * (t < 0.9)
+    put(img, sp, cx, cy, 1.0, rot)
+    return cx, cy - sp.height * 0.175   # LCD centre
+
+def bedroom_scene(img, t, girl_expr, arm_l, arm_r, talk=False, t_heart=None):
+    sx, sy = giant_pager(img, t, t_heart=t_heart)
+    P(img, GIRL, 1010, 1990, t, girl_expr, talk=talk, arm_l=arm_l, arm_r=arm_r, scale=1.0, look_dir=-1)
+    if t_heart is not None:
+        hearts_burst(img, sx, sy, t, t_heart, n=9, spread=430, r=50)
+    return sx, sy
+
+# 0  Emoji took off because teens loved one tiny heart.
+class E0(Sc):
     def events(self):
-        return [(0.02, 'bigpop', 0.45), (self.we('ella') - 0.04, 'chime', 0.5), (self.we('sweet') - 0.03, 'pop', 0.4)]
+        return [(0.02, 'bigpop', 0.45), (self.we('teens') - 0.04, 'pop', 0.35), (self.we('one') - 0.05, 'chime', 0.5)]
     def shots(self):
-        return [(0.0, 1.05, 1.1, CX - 140, 1150), (self.we('ella'), 1.05, 1.1, CX + 140, 1150), (self.we('sweet'), 1.0, 1.04, CX, 1200)]
+        return [(0.0, 1.08, 1.12, CX, 1160), (self.we('teens'), 1.2, 1.24, CX + 20, 1220), (self.we('tiny') - 0.1, 1.32, 1.4, 500, 1150)]
     def plate(self):
         return bedroom_plate()
     def dyn(self, img, t):
-        el = self.we('ella')
-        sw = self.we('sweet')
-        expr = 'shocked' if t < el else ('wink' if t > sw else 'happy')
-        a = P(img, NTEEN, 640, 2160, t, expr, talk=talk_frame(t), arm_l=150 if t > sw else 100, arm_r=110 + 10 * math.sin(t * 6), scale=0.98)
-        # giant hazelnut on the left
-        u = clamp01(t / 0.3)
-        put(img, nut(150), 250, 1150 + 20 * math.sin(t * 3), 0.3 + 0.7 * ease_back(u, 2.0), 10 * math.sin(t * 2))
-        hx, hy = a['hand_r']
-        put(img, jar(300), hx + 30, hy - 170, 1.0, 5 * math.sin(t * 4))
-        if t >= el:
-            d = ImageDraw.Draw(img)
-            v = t - el
-            for k in range(7):
-                ph = (v * 0.7 + k / 7) % 1
-                heart_d(d, 1000 + (k - 3) * 45 + 30 * math.sin(k + v * 3), 1250 - ph * 520, 30 * (1 - ph * 0.4), [(240, 80, 120), (255, 150, 190), (250, 110, 150)][k % 3])
+        tn = self.we('teens')
+        hh = self.we('tiny') - 0.1
+        if t < tn:
+            e, al, ar = 'shocked', 150 + 8 * math.sin(t * 9), 150 + 8 * math.sin(t * 8)
+        elif t < hh:
+            e, al, ar = 'happy', 120 + 20 * math.sin(t * 8), 30
+        else:
+            e, al, ar = 'happy', 160, 160
+        bedroom_scene(img, t, e, al, ar, t_heart=hh)
 
-# 10  Now its maker buys about a quarter of the world's hazelnuts, all because of a brick you had to slice.
-class N10(Sc):
+# 1  And the word emoji has nothing to do with emotion.
+class E1(Sc):
     def events(self):
-        return [(0.05, 'rattle', 0.5), (self.we('quarter') - 0.03, 'cash', 0.5), (self.we('brick') - 0.08, 'swipe', 0.35),
-                (self.we('slice') - 0.1, 'scratch', 0.5)]
+        return [(0.05, 'squeak', 0.45), (self.we('has') - 0.05, 'squeak', 0.4), (self.we('nothing') - 0.03, 'buzzer', 0.4)]
     def shots(self):
-        b = self.we('brick')
-        return [(0.0, 1.0, 1.06, CX, 1152), (self.we('quarter'), 1.15, 1.22, CX + 80, 1300), (b - 0.05, 1.18, 1.22, CX, 1100)]
+        return [(0.0, 1.05, 1.1, CX, 1100), (self.we('has'), 1.2, 1.25, CX + 120, 1000), (self.we('nothing'), 1.1, 1.14, CX, 1150)]
     def plate(self):
-        self.cp = counter_plate(0)
-        return warehouse_plate()
+        return classroom_plate()
+    def reveal(self, img, txt, x, y, u, col=(40, 70, 170), size=130):
+        if u <= 0:
+            return None
+        f = font(size, FONT_BOLD)
+        w = int(f.getlength(txt)) + 20
+        ti = Image.new('RGBA', (w, size + 60), (0, 0, 0, 0))
+        ImageDraw.Draw(ti).text((10, 0), txt, font=f, fill=col)
+        ti = ti.crop((0, 0, max(1, int(w * clamp01(u))), size + 60))
+        paste_at(img, ti, int(x), int(y))
+        return (x + w * clamp01(u), y + size * 0.7)
     def dyn(self, img, t):
-        b = self.we('brick') - 0.05
-        if t >= b:
-            img.paste(self.cp, (0, 0))
-            brick_scene(img, t, self.we('slice') - 0.12, 'happy')
-            return
-        q = self.we('quarter')
-        nut_heap(img, CX, 1900, 520, 380, 8, 26)
-        a = P(img, FARMER, 1050, 2200, t, 'shocked' if t > q else 'happy', arm_l=130 + 30 * math.sin(t * 6), arm_r=30, scale=0.92, look_dir=-1)
-        # scoop throwing nuts
+        tw, th, tn = self.we('word'), self.we('has'), self.we('nothing')
+        p1 = self.reveal(img, 'emoji', 150, 600, (t - tw + 0.2) / 0.45, size=120)
+        p2 = self.reveal(img, 'emotion', 700, 600, (t - th) / 0.55, (200, 60, 90), size=120)
         d = ImageDraw.Draw(img)
-        hx, hy = a['hand_l']
-        d.line([(hx, hy), (hx - 160, hy + 120)], fill=(130, 90, 55), width=16)
-        d.polygon([(hx - 230, hy + 90), (hx - 120, hy + 150), (hx - 160, hy + 230), (hx - 270, hy + 170)], fill=(190, 195, 205))
-        for k in range(10):
-            ph = (t * 1.3 + k / 10) % 1
-            put(img, nut(24, (k * 50) % 360), hx - 200 - ph * 500, hy + 100 - 400 * math.sin(ph * math.pi) + ph * 300)
-        P(img, NTEEN, 240, 2240, t, 'shocked' if t > q else 'smile', arm_l=20, arm_r=150 if t > q else 90, scale=0.85, phase=2, look_dir=1)
-        chip_at(img, '~25%', CX, 760, t, q, dot=(165, 100, 50))
+        if t >= tn:
+            u = clamp01((t - tn) / 0.25)
+            cx, cy = 600, 690
+            L = 75 * ease_back(u, 2)
+            d.line([(cx - L, cy - 30), (cx + L, cy - 30)], fill=(220, 30, 40), width=22)
+            d.line([(cx - L, cy + 30), (cx + L, cy + 30)], fill=(220, 30, 40), width=22)
+            d.line([(cx + L * 0.6, cy - 95), (cx - L * 0.6, cy + 95)], fill=(220, 30, 40), width=22)
+        # girl writing on the board
+        writing = t < tn
+        a = P(img, GIRL, 1060, 1960, t, 'happy' if writing else 'proud', arm_l=125 + 12 * math.sin(t * 14) * writing, arm_r=20 if writing else 60,
+              scale=0.95, look_dir=-1)
+        hold(img, marker(150, (40, 70, 170) if t < th else (200, 60, 90)), a, 'hand_l', 0, -40, -30 + 10 * math.sin(t * 14) * writing)
+        P(img, BFF, 300, 2090, t, 'shocked' if t >= tn else 'smile', arm_l=150 if t >= tn else 20, arm_r=150 if t >= tn else 100, scale=0.95, phase=2, look_dir=1)
+        school_desk(img, 360, 1740, 560)
 
-SCENES = [N0, N1, N2, N3, N4, N5, N6, N7, N8, N9, N10]
+# 2  So what does it actually mean?
+class E2(Sc):
+    def events(self):
+        return [(0.05, 'rustle', 0.5), (self.we('actually') - 0.05, 'rustle', 0.45)]
+    def shots(self):
+        return [(0.0, 1.05, 1.1, CX, 1150), (self.we('actually'), 1.18, 1.24, CX - 60, 1250)]
+    def plate(self):
+        return living_plate()
+    def dyn(self, img, t):
+        P(img, BFF, 1020, 1960, t, 'think', arm_l=120 + 8 * math.sin(t * 6), arm_r=120 - 8 * math.sin(t * 6), scale=0.92, phase=1.3, look_dir=-1)
+        a = P(img, GIRL, 450, 1990, t, 'think', arm_l=45, arm_r=45, scale=1.0, look_dir=1)
+        fl = (t * 2.2) % 1
+        bk = dictionary(520, fl)
+        mx = (a['hand_l'][0] + a['hand_r'][0]) / 2
+        my = (a['hand_l'][1] + a['hand_r'][1]) / 2
+        put(img, bk, mx, my - 30, 1.0, 4 * math.sin(t * 3))
+
+# 3  In the nineties, a Japanese pager let you send a little heart, and teens were obsessed.
+class E3(Sc):
+    def events(self):
+        return [(0.05, 'swipe', 0.3), (self.we('pager') - 0.03, 'tick', 0.5), (self.we('send') + 0.1, 'bloop', 0.5),
+                (self.we('obsessed') - 0.25, 'party', 0.35)]
+    def shots(self):
+        return [(0.0, 1.0, 1.05, CX, 1150), (self.we('pager') - 0.05, 1.25, 1.3, 380, 1050), (self.we('send'), 1.05, 1.08, CX, 1120),
+                (self.we('teens'), 1.15, 1.2, CX, 1200)]
+    def plate(self):
+        return tokyo_plate()
+    def dyn(self, img, t):
+        sd, ob = self.we('send') + 0.1, self.we('teens')
+        crazy = t >= ob
+        a1 = P(img, JP1, 290, 1950, t, 'happy' if t < ob else 'happy', talk=talk_frame(t) and sd - 0.6 < t < sd + 0.3,
+               arm_l=20 if not crazy else 150, arm_r=140 + (8 * math.sin(t * 12) if crazy else 0), scale=0.95, look_dir=1)
+        a2 = P(img, JP2, 1010, 1950, t, 'shocked' if sd + 0.7 < t < ob else ('happy' if crazy else 'smile'),
+               arm_l=140 + (8 * math.sin(t * 11) if crazy else 0), arm_r=20 if not crazy else 150, scale=0.95, phase=2, look_dir=-1)
+        p1 = (a1['hand_r'][0] + 10, a1['hand_r'][1] - 80)
+        p2 = (a2['hand_l'][0] - 10, a2['hand_l'][1] - 80)
+        put(img, pager(170, (240, 120, 170), 1.0, False), p1[0], p1[1], 1.0, -8)
+        got = t >= sd + 0.7
+        put(img, pager(170, (120, 160, 240), 1.0, not got), p2[0], p2[1], 1.0, 8)
+        # heart flies across (and keeps flying back and forth once they're hooked)
+        trips = [sd] + ([ob + k * 0.55 for k in range(6)] if crazy else [])
+        for k, s0 in enumerate(trips):
+            u = (t - s0) / 0.7
+            if 0 <= u <= 1:
+                a, b = (p1, p2) if k % 2 == 0 else (p2, p1)
+                x = a[0] + (b[0] - a[0]) * ease_in_out(u)
+                y = a[1] + (b[1] - a[1]) * u - 380 * math.sin(u * math.pi)
+                put(img, heart_sp(46), x, y - 60, 1.0 + 0.3 * math.sin(u * math.pi))
+        if crazy:
+            hearts_burst(img, CX, 1000, t, ob, n=11, spread=520, r=40)
+
+# 4  As the story goes, when a new model dropped it, people were so upset the company noticed.
+class E4(Sc):
+    def events(self):
+        e = [(0.05, 'pop', 0.35), (self.we('dropped') - 0.03, 'buzzer', 0.45)]
+        up = self.we('upset')
+        e += [(up - 0.2 + k * 0.18, 'rustle', 0.35) for k in range(5)]
+        e += [(self.we('company') - 0.05, 'thud', 0.4)]
+        return e
+    def shots(self):
+        return [(0.0, 1.0, 1.05, CX, 1150), (self.we('model'), 1.3, 1.35, 840, 1300), (self.we('people'), 1.05, 1.1, CX, 1150),
+                (self.we('company'), 1.18, 1.24, CX - 40, 1150)]
+    def plate(self):
+        return office_plate()
+    def dyn(self, img, t):
+        dr, up, co = self.we('dropped'), self.we('people'), self.we('company')
+        ex = 'smile' if t < dr else ('nervous' if t < co else 'shocked')
+        a = P(img, EXEC2, 560, 1840, t, ex, arm_l=20 if t < co else 150, arm_r=60 + 10 * math.sin(t * 5) if t < co else 150, scale=0.95)
+        if t >= up:
+            P(img, JP2, 1060, 1960, t, 'angry', talk=talk_frame(t), arm_l=150 + 10 * math.sin(t * 10), arm_r=30, scale=0.9, phase=1, look_dir=-1)
+        desk_front(img, 1500)
+        # the new pager on the desk: the heart is gone
+        put(img, pager(230, (150, 110, 210), 1.0, t >= dr), 860, 1500 - 175)
+        floor_shadow(img, 860, 1510, 150, 0.3)
+        if t >= dr:
+            u = clamp01((t - dr) / 0.25)
+            d = ImageDraw.Draw(img)
+            cx, cy = 860, 1500 - 175 - 60
+            r = 70 * ease_back(u, 2)
+            d.ellipse([cx - r, cy - r, cx + r, cy + r], outline=(230, 30, 40), width=14)
+            d.line([(cx - r * 0.7, cy + r * 0.7), (cx + r * 0.7, cy - r * 0.7)], fill=(230, 30, 40), width=14)
+        # angry letters pile up
+        if t >= up - 0.2:
+            n = int((t - up + 0.2) / 0.09)
+            for k in range(min(n, 40)):
+                s0 = up - 0.2 + k * 0.09
+                u = clamp01((t - s0) / 0.45)
+                tx = (90 + (k * 137) % 220) if k % 2 else (930 + (k * 137) % 230)
+                ty = 1460 - (k // 8) * 22 - ((k * 31) % 30)
+                y = -100 + (ty + 100) * ease_in_out(u)
+                put(img, envelope(130), tx, y, 1.0, ((k * 47) % 50) - 25 + (1 - u) * 90)
+
+# 5  So in 1999, a designer named Shigetaka Kurita drew 176 tiny pictures for phones, each just 12 by 12 pixels.
+class E5(Sc):
+    def events(self):
+        e = [(0.05, 'swipe', 0.3), (self.we('designer') - 0.03, 'pop', 0.35)]
+        dr = self.we('drew')
+        e += [(dr + k * 0.12, 'tick', 0.35) for k in range(6)]
+        e += [(self.we('176') - 0.03, 'bigpop', 0.45), (self.we('each') - 0.05, 'swipe', 0.3), (wx(self, '12') - 0.03, 'pop', 0.4)]
+        return e
+    def shots(self):
+        return [(0.0, 1.0, 1.05, CX, 1150), (self.we('designer'), 1.2, 1.25, 360, 1000), (self.we('drew'), 1.25, 1.3, 760, 1080),
+                (self.we('176'), 1.1, 1.14, 700, 1060), (self.we('each'), 1.55, 1.62, 765, 1090)]
+    def plate(self):
+        return designer_plate()
+    def dyn(self, img, t):
+        ds, dr, n176, ea = self.we('designer'), self.we('drew'), self.we('176'), self.we('each')
+        W_ = 660
+        sw, sh_ = int(W_ * 0.8), int(W_ * 0.86 * 0.79 - W_ * 0.09)
+        if t < n176:
+            n = int(npix('heart') * clamp01((t - ds) / max(0.5, n176 - ds - 0.3)))
+            sc_ = screen_content(sw, sh_, 'draw', n=n)
+        elif t < ea:
+            sc_ = screen_content(sw, sh_, 'set', n=int(176 * clamp01((t - n176) / 0.9)))
+        else:
+            sc_ = screen_content(sw, sh_, 'draw', n=None)
+        mon = crt(W_, sc_)
+        ex = 'think' if t < dr else ('happy' if t < ea else 'proud')
+        a = P(img, KURITA, 290, 1900, t, ex, arm_l=20, arm_r=70 + 6 * math.sin(t * 9), scale=0.95, look_dir=1)
+        desk_front(img, 1480)
+        floor_shadow(img, 770, 1490, 330, 0.35)
+        paste_at(img, mon, int(770 - mon.width / 2), int(1485 - mon.height))
+        d = ImageDraw.Draw(img)
+        # keyboard + mouse
+        d.polygon([(560, 1510), (980, 1510), (1000, 1570), (540, 1570)], fill=(225, 220, 205), outline=(160, 150, 130))
+        for k in range(3):
+            d.line([(570 + k * 6, 1525 + k * 14), (970 - k * 6, 1525 + k * 14)], fill=(180, 172, 150), width=4)
+        hx, hy = a['hand_r']
+        d.ellipse([hx - 30, max(hy, 1470) - 10, hx + 30, max(hy, 1470) + 34], fill=(225, 220, 205), outline=(160, 150, 130), width=3)
+        if n176 <= t < ea:
+            chip_at(img, '176', 770, 640, t, n176, dot=(230, 50, 80))
+        elif t >= wx(self, '12'):
+            chip_at(img, '12 × 12', 770, 690, t, wx(self, '12'), dot=(60, 110, 210))
+
+# 6  Today, that set is in New York's Museum of Modern Art.
+class E6(Sc):
+    def events(self):
+        return [(0.05, 'swipe', 0.3), (self.we('Museum') - 0.03, 'chime', 0.5)]
+    def shots(self):
+        return [(0.0, 1.05, 1.1, CX, 1000), (self.we('York'), 1.1, 1.14, CX, 1150), (self.we('Modern'), 1.22, 1.28, CX, 950)]
+    def plate(self):
+        self.panel = icon_panel(640, 420)
+        return museum_plate()
+    def dyn(self, img, t):
+        mu = self.we('Museum')
+        paste_at(img, self.panel, int(CX - self.panel.width / 2), 540)
+        if t >= mu:
+            d = ImageDraw.Draw(img)
+            for k in range(6):
+                ph = ((t - mu) * 0.9 + k / 6) % 1
+                ang = k * math.pi / 3 + (t - mu)
+                sparkle(d, CX + math.cos(ang) * 420, 770 + math.sin(ang) * 300, 26 * (1 - abs(ph - 0.5)))
+        museum_front(img, 1760)
+        P(img, GIRL, 360, 1990, t, 'happy' if t < mu else 'shocked', arm_l=20, arm_r=150 if t >= mu else 110, scale=0.92, look_dir=1)
+        P(img, GRAN, 960, 1990, t, 'smile' if t < mu else 'proud', talk=talk_frame(t) and t < mu, arm_l=110, arm_r=20, scale=0.9, phase=1.5, look_dir=-1)
+
+# 7  Plot twist: it wasn't even the first.
+class E7(Sc):
+    def events(self):
+        return [(0.03, 'scratch', 0.5), (self.we('wasn') - 0.03, 'swipe', 0.35), (self.we('even'), 'bigpop', 0.45)]
+    def shots(self):
+        return [(0.0, 1.12, 1.16, CX, 1150), (self.we('wasn'), 1.0, 1.04, CX, 1150), (self.we('first') - 0.1, 1.2, 1.25, CX, 1050)]
+    def plate(self):
+        self.panel = icon_panel(300, 200)
+        return stage_plate()
+    def dyn(self, img, t):
+        wn, ev = self.we('wasn'), self.we('even')
+        spots = podium(img, 1720)
+        u = clamp01((t - wn) / 0.4)
+        x1, y1 = spots['1']
+        x2, y2 = spots['2']
+        px = x1 + (x2 - x1) * ease_in_out(u)
+        py = y1 + (y2 - y1) * ease_in_out(u) - 120 * math.sin(u * math.pi)
+        paste_at(img, self.panel, int(px - self.panel.width / 2), int(py - self.panel.height))
+        if t >= ev:
+            v = clamp01((t - ev) / 0.3)
+            ph = phone97(170)
+            y = -300 + (y1 - ph.height / 2 + 300) * ease_out(v)
+            put(img, ph, x1, y, 1.0, 8 * (1 - v))
+            if v >= 1:
+                d = ImageDraw.Draw(img)
+                for k in range(8):
+                    ang = k * math.pi / 4 + t
+                    sparkle(d, x1 + math.cos(ang) * 200, y + math.sin(ang) * 260, 24)
+        P(img, GIRL, 1060, 2010, t, 'shocked' if t >= wn else 'think', arm_l=150 + 6 * math.sin(t * 9), arm_r=150 + 6 * math.sin(t * 8), scale=0.92, look_dir=-1)
+
+# 8  Another Japanese phone had 90 emoji back in 1997, and that's the family your iPhone emoji came from.
+class E8(Sc):
+    def events(self):
+        e = [(0.05, 'pop', 0.35), (self.we('90') - 0.03, 'tick', 0.5), (self.we('1997') - 0.05, 'ding', 0.45),
+             (self.we('family') - 0.05, 'swipe', 0.3), (self.we('iPhone') - 0.04, 'chime', 0.45)]
+        return e
+    def shots(self):
+        return [(0.0, 1.0, 1.05, CX, 1150), (self.we('90') - 0.05, 1.3, 1.36, 380, 1050), (self.we('family') - 0.05, 1.0, 1.04, CX, 1120),
+                (self.we('iPhone') - 0.05, 1.06, 1.1, CX + 60, 1080)]
+    def plate(self):
+        return phoneshop_plate()
+    def dyn(self, img, t):
+        n90, fa, ip = self.we('90'), self.we('family'), self.we('iPhone')
+        a = P(img, CLERK, 330, 1840, t, 'happy' if t < fa else 'proud', talk=talk_frame(t) and t < fa, arm_l=20, arm_r=(125 if t < fa else 70) + 5 * math.sin(t * 5), scale=0.95)
+        if t >= fa:
+            b = P(img, GIRL, 930, 1990, t, 'shocked' if t < ip else 'happy', arm_l=20, arm_r=135 + 5 * math.sin(t * 6), scale=0.92, phase=2, look_dir=-1)
+        glass_counter(img, 1560)
+        n = 0 if t < n90 else 1 + int(clamp01((t - n90) / 0.6) * 5)
+        ph = phone97(200, n)
+        hx, hy = a['hand_r']
+        put(img, ph, hx + (10 if t < fa else -90), hy - (160 if t < fa else 40), 1.0, -6)
+        if t >= fa:
+            sp = smartphone(220)
+            gx, gy = b['hand_r']
+            gx, gy = gx - 150, gy - 200
+            if t >= ip:
+                glow = Image.new('RGBA', (420, 620), (0, 0, 0, 0))
+                ImageDraw.Draw(glow).rounded_rectangle([60, 60, 360, 560], 60, fill=(255, 240, 150, 150))
+                glow = glow.filter(ImageFilter.GaussianBlur(30))
+                put(img, glow, gx, gy)
+            put(img, sp, gx, gy, 1.0, 6)
+            # family link: dotted golden arc from old phone to new phone with hearts
+            u = clamp01((t - fa) / 0.6)
+            d = ImageDraw.Draw(img)
+            p0 = (hx + 10, hy - 420)
+            p1 = (gx, gy - 260)
+            for k in range(int(28 * u)):
+                s_ = k / 28
+                x = p0[0] + (p1[0] - p0[0]) * s_
+                y = p0[1] + (p1[1] - p0[1]) * s_ - 260 * math.sin(s_ * math.pi)
+                d.ellipse([x - 9, y - 9, x + 9, y + 9], fill=(255, 205, 60))
+            if u >= 1:
+                for k in range(3):
+                    s_ = ((t - fa) * 0.5 + k / 3) % 1
+                    x = p0[0] + (p1[0] - p0[0]) * s_
+                    y = p0[1] + (p1[1] - p0[1]) * s_ - 260 * math.sin(s_ * math.pi)
+                    put(img, heart_sp(30), x, y)
+
+# 9  Now, the name. E means picture, moji means character.
+class E9(Sc):
+    def events(self):
+        return [(0.05, 'rustle', 0.4), (wx(self, 'E') - 0.05, 'pop', 0.45), (self.we('moji') - 0.05, 'pop', 0.45)]
+    def shots(self):
+        e = wx(self, 'E')
+        return [(0.0, 1.0, 1.05, CX, 1100), (e - 0.05, 1.2, 1.25, 420, 880), (self.we('moji') - 0.05, 1.2, 1.25, 880, 880)]
+    def plate(self):
+        return tatami_plate()
+    def dyn(self, img, t):
+        e, m = wx(self, 'E'), self.we('moji')
+        u1 = clamp01((t - e + 0.05) / 0.35)
+        u2 = clamp01((t - m + 0.05) / 0.35)
+        s1 = scroll(330, 820, '絵', True, max(0.05, u1))
+        s2 = scroll(330, 820, '文字', False, max(0.05, u2))
+        paste_at(img, s1, int(400 - s1.width / 2), 250)
+        paste_at(img, s2, int(900 - s2.width / 2), 250)
+        a = P(img, TEACH, 640, 1860, t, 'happy' if t < e else 'proud', talk=talk_frame(t) and t < e, arm_l=20,
+              arm_r=150 if t >= m else (130 if t >= e else 60), scale=0.85)
+        hold(img, brush(240), a, 'hand_r', 0, -60, -20 + 8 * math.sin(t * 6))
+        P(img, GIRL, 1130, 2010, t, 'think' if t < e else 'happy', arm_l=110, arm_r=20, scale=0.85, phase=2, look_dir=-1)
+        low_table(img, 640, 1720, 600)
+
+# 10  Emotion? Total coincidence. And it all started with one tiny heart.
+class E10(Sc):
+    def events(self):
+        return [(0.05, 'bloop', 0.4), (self.we('coincidence') - 0.03, 'pop', 0.35), (self.we('one') - 0.05, 'chime', 0.5)]
+    def shots(self):
+        return [(0.0, 1.12, 1.16, CX + 120, 1200), (self.we('coincidence'), 1.2, 1.24, CX + 150, 1250),
+                (self.we('started'), 1.08, 1.12, CX, 1160), (self.we('tiny') - 0.1, 1.32, 1.4, 500, 1150)]
+    def plate(self):
+        return bedroom_plate()
+    def dyn(self, img, t):
+        co, st, hh = self.we('coincidence'), self.we('started'), self.we('tiny') - 0.1
+        if t < co:
+            e, al, ar, tk = 'think', 120, 120, False
+        elif t < st:
+            e, al, ar, tk = 'happy', 30, 140 + 10 * math.sin(t * 9), talk_frame(t)
+        else:
+            e, al, ar, tk = 'happy', 160 if t > hh else 120, 160 if t > hh else 30, False
+        bedroom_scene(img, t, e, al, ar, tk, t_heart=hh)
+
+SCENES = [E0, E1, E2, E3, E4, E5, E6, E7, E8, E9, E10]

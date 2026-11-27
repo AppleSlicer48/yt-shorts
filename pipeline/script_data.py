@@ -1,21 +1,27 @@
 def W(s, spoken=None):
     return (s, spoken if spoken is not None else s)
 
-HOOK_TEXT = "NUTELLA WAS\nA BRICK?!"
+# Topic: Emoji started with a heart (user-recorded voiceover for 2026-11-27)
+# Sources: Emojipedia "Correcting the Record on the First Emoji Set" (SoftBank/J-Phone 90 emoji, Nov 1 1997; Apple's set derives from SoftBank's);
+#          Emojipedia "Pocket Bell" (DoCoMo pager heart, popular with Japanese teens, inspired Kurita);
+#          MoMA collection 196070 + Wikipedia "Shigetaka Kurita" (176 emoji, 12x12 grid, NTT DoCoMo i-mode 1999, MoMA acquired 2016; heart removal backlash);
+#          Wikipedia "Emoji" (e = picture + moji = character; resemblance to "emotion" is coincidental).
+TITLE = "Emoji Started Because of One Tiny Heart ❤️"
+HOOK_TEXT = "EMOJI STARTED\nWITH A HEART?!"
 
 def ws(text):
     return [W(x) for x in text.split()]
 
 SENTENCES = [
-    ws("Nutella started out as a brick you had to slice!"),
-    ws("And it only exists because there wasn't enough chocolate."),
-    ws("So how did a brick become the spread everyone loves?"),
-    ws("After World War Two, cocoa was super hard to get."),
-    ws("So pastry chef Pietro Ferrero got creative."),
-    ws("He used mostly hazelnuts and just a little cocoa."),
-    ws("In") + [W("1946,", "nineteen forty six,")] + ws("it was a solid loaf people sliced onto bread. Yep."),
-    ws("In") + [W("1951,", "nineteen fifty one,")] + ws("it became a creamy spread called Supercrema."),
-    ws("In") + [W("1964,", "nineteen sixty four,")] + ws("his son Michele renamed it Nutella."),
-    ws("Nut, for hazelnut, plus") + [W("ella,"), W("a"), W("sweet-sounding", "sweet sounding")] + ws("Italian ending."),
-    ws("Now its maker buys about a quarter of the world's hazelnuts, all because of a brick you had to slice."),
+    ws("Emoji took off because teens loved one tiny heart."),
+    ws("And the word emoji has nothing to do with emotion."),
+    ws("So what does it actually mean?"),
+    ws("In the nineties, a Japanese pager let you send a little heart, and teens were obsessed."),
+    ws("As the story goes, when a new model dropped it, people were so upset the company noticed."),
+    ws("So in") + [W("1999,", "nineteen ninety nine,")] + ws("a designer named Shigetaka Kurita drew") + [W("176", "a hundred seventy six")] + ws("tiny pictures for phones, each just") + [W("12", "twelve"), W("by"), W("12", "twelve")] + ws("pixels."),
+    ws("Today, that set is in New York's Museum of Modern Art."),
+    ws("Plot twist: it wasn't even the first."),
+    ws("Another Japanese phone had") + [W("90", "ninety")] + ws("emoji back in") + [W("1997,", "nineteen ninety seven,")] + ws("and that's the family your iPhone emoji came from."),
+    ws("Now, the name. E means picture, moji means character."),
+    ws("Emotion? Total coincidence. And it all started with one tiny heart."),
 ]
