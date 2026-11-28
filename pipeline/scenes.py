@@ -1,4 +1,4 @@
-"""Emoji Started Because of One Tiny Heart - scenes (cartoon people kit, detailed 2.5D settings)."""
+"""Why Pocky Has a Bare Handle - scenes (cartoon people kit, detailed 2.5D settings). Shared helpers first, Pocky scenes at the bottom."""
 import math
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
@@ -1680,356 +1680,608 @@ def wx(sc, word, which='t0', nth=0):
 
 PAGER_BODY = (70, 190, 200)
 
-def giant_pager(img, t, cx=470, bottom=1700, w=600, t_heart=None, blank=False):
-    pulse = 1.0
-    if t_heart is not None and t >= t_heart:
-        u = t - t_heart
-        pulse = 1.0 + 0.35 * math.sin(min(u, 0.5) / 0.5 * math.pi) + 0.06 * math.sin(u * 9) * (u > 0.5)
-    sp = pager(w, PAGER_BODY, round(pulse, 2), blank)
-    floor_shadow(img, cx, bottom + 10, w * 0.55, 0.4)
-    rot = 2.5 * math.sin(t * 3.2)
-    cy = bottom - sp.height / 2 - 18 * abs(math.sin(t * 6.4)) * (t < 0.9)
-    put(img, sp, cx, cy, 1.0, rot)
-    return cx, cy - sp.height * 0.175   # LCD centre
 
-def bedroom_scene(img, t, girl_expr, arm_l, arm_r, talk=False, t_heart=None):
-    sx, sy = giant_pager(img, t, t_heart=t_heart)
-    P(img, GIRL, 1010, 1990, t, girl_expr, talk=talk, arm_l=arm_l, arm_r=arm_r, scale=1.0, look_dir=-1)
-    if t_heart is not None:
-        hearts_burst(img, sx, sy, t, t_heart, n=9, spread=430, r=50)
-    return sx, sy
+# ================================================================ POCKY props (generic stand-ins, no logos)
+BISC = (226, 178, 105)
+BISC_D = (190, 140, 75)
+CHOC = (92, 50, 30)
+CHOC_HI = (150, 95, 62)
+CHOC_D = (60, 32, 20)
 
-# 0  Emoji took off because teens loved one tiny heart.
-class E0(Sc):
+_ST = {}
+def stick(L=900, th=60, bare=0.22, coat=1.0, bite=0.0, choc=CHOC):
+    """Horizontal biscuit stick; bare handle on the LEFT, chocolate tip on the RIGHT.
+    bare: fraction left uncoated (0 = fully coated). coat: 0..1 how much of the coated part is on.
+    bite: fraction of length missing from the right (snapped / bitten)."""
+    key = (int(L), int(th), round(bare, 3), round(coat, 3), round(bite, 3), choc)
+    if key in _ST:
+        return _ST[key]
+    pad = 20
+    Lb = L * (1 - bite)
+    im, d = _ss(L + pad * 2, th * 1.6 + pad * 2)
+    s = SS
+    y0, y1 = (pad + th * 0.3) * s, (pad + th * 1.3) * s
+    x0, x1 = pad * s, (pad + Lb) * s
+    r = th * 0.42 * s
+    d.rounded_rectangle([x0, y0, x1, y1], r, fill=BISC, outline=BISC_D, width=int(3 * s))
+    # biscuit texture
+    for k in range(int(L / 9)):
+        xx = x0 + ((k * 53) % 997) / 997 * (x1 - x0)
+        yy = y0 + (0.2 + 0.6 * ((k * 31) % 17) / 17) * (y1 - y0)
+        d.ellipse([xx - 2.5 * s, yy - 2 * s, xx + 2.5 * s, yy + 2 * s], fill=BISC_D)
+    d.line([x0 + r, y0 + 0.22 * (y1 - y0), x1 - r, y0 + 0.22 * (y1 - y0)], fill=lt(BISC, 0.45), width=int(5 * s))
+    # chocolate coat (from the tip back toward the handle)
+    if coat > 0:
+        cl = (L * (1 - bare)) * coat
+        cx0 = (pad + L - cl) * s
+        cx0 = max(cx0, x0)
+        if cx0 < x1:
+            cy0, cy1 = y0 - 5 * s, y1 + 5 * s
+            d.rounded_rectangle([cx0, cy0, x1 + 3 * s, cy1], r * 1.05, fill=choc)
+            # wavy dipped edge
+            n = 9
+            for k in range(n + 1):
+                yy = cy0 + (cy1 - cy0) * k / n
+                ww = (10 + 9 * math.sin(k * 2.1)) * s
+                d.ellipse([cx0 - ww, yy - 9 * s, cx0 + ww, yy + 9 * s], fill=choc)
+            d.line([cx0 + 18 * s, cy0 + 0.25 * (cy1 - cy0), x1 - r * 0.6, cy0 + 0.25 * (cy1 - cy0)], fill=lt(choc, 0.28), width=int(7 * s))
+            d.line([cx0 + 30 * s, cy0 + 0.18 * (cy1 - cy0), cx0 + (x1 - cx0) * 0.5, cy0 + 0.18 * (cy1 - cy0)], fill=lt(choc, 0.55), width=int(3 * s))
+            d.line([cx0 + 12 * s, cy1 - 6 * s, x1 - r * 0.5, cy1 - 6 * s], fill=dk(choc, 0.7), width=int(5 * s))
+    if bite > 0:
+        # jagged snapped end
+        pts = [(x1, y0 - 6 * s)]
+        for k in range(7):
+            pts.append((x1 + (10 if k % 2 else -6) * s, y0 + (y1 - y0) * (k + 0.5) / 7))
+        pts.append((x1, y1 + 6 * s))
+        pts.append((x1 + 40 * s, y1 + 6 * s))
+        pts.append((x1 + 40 * s, y0 - 6 * s))
+        d.polygon(pts, fill=(0, 0, 0, 0))
+        d.line(pts[:-2], fill=BISC, width=int(8 * s))
+    out = _down(im)
+    _ST[key] = out
+    return out
+
+def put_stick(img, end, L, ang, grip=0.09, **kw):
+    """Place a stick so the point 'grip' (fraction from the handle end) sits at 'end'. ang in degrees, CCW."""
+    sp = stick(L, **kw)
+    a = math.radians(ang)
+    off = L * (0.5 - grip)
+    cx = end[0] + off * math.cos(a)
+    cy = end[1] - off * math.sin(a)
+    put(img, sp, cx, cy, 1.0, ang)
+    return cx, cy
+
+def stick_point(center, L, ang, frac):
+    """Point along a stick centred at 'center': frac 0 = handle end, 1 = tip."""
+    a = math.radians(ang)
+    o = L * (frac - 0.5)
+    return center[0] + o * math.cos(a), center[1] - o * math.sin(a)
+
+def put_sk(img, sp, end, L, ang, grip=0.08):
+    a = math.radians(ang)
+    off = (L + 40) * (0.5 - grip)
+    put(img, sp, end[0] + off * math.cos(a), end[1] - off * math.sin(a), 1.0, ang)
+
+def ring(img, cx, cy, r, t, t0, col=(240, 40, 50), width=16, pulse=True):
+    if t < t0:
+        return
+    u = clamp01((t - t0) / 0.35)
+    rr = r * (0.3 + 0.7 * ease_back(u, 2.2))
+    if pulse and u >= 1:
+        rr *= 1 + 0.05 * math.sin((t - t0) * 7)
+    ov = Image.new('RGBA', (int(rr * 2 + 60), int(rr * 2 + 60)), (0, 0, 0, 0))
+    od = ImageDraw.Draw(ov)
+    c = ov.width / 2
+    od.ellipse([c - rr, c - rr * 0.92, c + rr, c + rr * 0.92], outline=(255, 255, 255, 230), width=width + 10)
+    od.ellipse([c - rr, c - rr * 0.92, c + rr, c + rr * 0.92], outline=col, width=width)
+    paste_at(img, ov, int(cx - c), int(cy - c))
+
+def arrow(img, x0, y0, x1, y1, t, t0, col=(240, 40, 50), w=22):
+    if t < t0:
+        return
+    u = clamp01((t - t0) / 0.3)
+    wob = 14 * math.sin((t - t0) * 9) * (u >= 1)
+    ang = math.atan2(y1 - y0, x1 - x0)
+    ex, ey = x0 + (x1 - x0) * ease_out(u) + wob * math.cos(ang), y0 + (y1 - y0) * ease_out(u) + wob * math.sin(ang)
+    sx, sy = ex - (x1 - x0), ey - (y1 - y0)
+    d = ImageDraw.Draw(img)
+    for c_, ww in (((255, 255, 255), w + 12), (col, w)):
+        d.line([(sx, sy), (ex - 40 * math.cos(ang), ey - 40 * math.sin(ang))], fill=c_, width=ww)
+        hl = 70 + (6 if c_ == (255, 255, 255) else 0)
+        p1 = (ex + 8 * math.cos(ang) * (c_ == (255, 255, 255)), ey + 8 * math.sin(ang) * (c_ == (255, 255, 255)))
+        p2 = (ex - hl * math.cos(ang - 0.5), ey - hl * math.sin(ang - 0.5))
+        p3 = (ex - hl * math.cos(ang + 0.5), ey - hl * math.sin(ang + 0.5))
+        d.polygon([p1, p2, p3], fill=c_)
+
+_BX = {}
+def snack_box(w=300, body=(220, 40, 50), stripe=(250, 245, 240), open_=True, n=7):
+    key = (w, body, stripe, open_, n)
+    if key in _BX:
+        return _BX[key]
+    h = w * 1.55
+    im, d = _ss(w * 1.1, h * 1.25)
+    s = SS
+    top = h * 0.25 * s
+    x0, x1 = w * 0.05 * s, w * 1.05 * s
+    # sticks poking out
+    if open_:
+        for k in range(n):
+            sx = x0 + (x1 - x0) * (0.12 + 0.76 * k / max(1, n - 1))
+            hh = (h * (0.1 + 0.12 * ((k * 5) % 3))) * s
+            d.rounded_rectangle([sx - 9 * s, top - hh, sx + 9 * s, top + 60 * s], 9 * s, fill=CHOC)
+            d.line([sx - 3 * s, top - hh + 12 * s, sx - 3 * s, top + 20 * s], fill=CHOC_HI, width=int(4 * s))
+    d.rectangle([x0, top, x1, top + h * s], fill=body, outline=dk(body, 0.7), width=int(5 * s))
+    d.polygon([(x0, top), (x1, top), (x1 - 20 * s, top - 30 * s), (x0 + 20 * s, top - 30 * s)], fill=lt(body, 0.25), outline=dk(body, 0.7))
+    # front art: a big stick illustration + stripes (no wordmark)
+    d.rectangle([x0, top + h * 0.12 * s, x1, top + h * 0.2 * s], fill=stripe)
+    cx_, cy_ = (x0 + x1) / 2, top + h * 0.58 * s
+    for k, dx in enumerate((-0.18, 0.0, 0.18)):
+        a = math.radians(-60)
+        L_ = h * 0.5 * s
+        xa, ya = cx_ + dx * w * s - L_ / 2 * math.cos(a) * 0.5, cy_ + L_ / 2 * math.sin(a) * 0.5 + L_ * 0.25
+        xb, yb = xa + L_ * 0.5 * math.cos(-a) * 0.9, ya - L_ * 0.85
+        d.line([(xa, ya), (xb, yb)], fill=BISC, width=int(22 * s))
+        xm, ym = xa + (xb - xa) * 0.25, ya + (yb - ya) * 0.25
+        d.line([(xm, ym), (xb, yb)], fill=CHOC, width=int(26 * s))
+    d.rectangle([x0, top + h * 0.88 * s, x1, top + h * 0.94 * s], fill=stripe)
+    d.line([x0 + 10 * s, top + 8 * s, x0 + 10 * s, top + h * s - 8 * s], fill=lt(body, 0.3), width=int(8 * s))
+    out = _down(im)
+    _BX[key] = out
+    return out
+
+def skewer(L=520, th=70, n=3, seed=0):
+    """Breaded fried food on a wooden skewer, bare stick on the LEFT (like a handle)."""
+    im, d = _ss(L + 40, th * 1.6 + 40)
+    s = SS
+    cy = (20 + th * 0.8) * s
+    d.rounded_rectangle([20 * s, cy - 7 * s, (L + 10) * s, cy + 7 * s], 6 * s, fill=(225, 195, 140), outline=(170, 135, 85), width=int(2 * s))
+    x = (20 + L * 0.32) * s
+    seg = (L * 0.66) / n * s
+    for k in range(n):
+        bx = x + seg * k
+        col = (205, 140, 60) if k % 2 == 0 else (215, 155, 70)
+        d.rounded_rectangle([bx + 4 * s, cy - th * 0.75 * s, bx + seg - 4 * s, cy + th * 0.75 * s], th * 0.35 * s, fill=col, outline=(150, 95, 40), width=int(3 * s))
+        for j in range(22):
+            px = bx + 10 * s + ((j * 37 + k * 11) % 97) / 97 * (seg - 20 * s)
+            py = cy - th * 0.6 * s + ((j * 53 + k * 7) % 89) / 89 * th * 1.2 * s
+            d.ellipse([px - 4 * s, py - 3 * s, px + 4 * s, py + 3 * s], fill=(235, 180, 95))
+    return _down(im)
+
+def trophy(w=300):
+    im, d = _ss(w, w * 1.35)
+    s = SS
+    g, gd = (250, 205, 60), (200, 150, 30)
+    W_ = w * s
+    d.ellipse([W_ * 0.05, W_ * 0.12, W_ * 0.3, W_ * 0.5], outline=gd, width=int(14 * s))
+    d.ellipse([W_ * 0.7, W_ * 0.12, W_ * 0.95, W_ * 0.5], outline=gd, width=int(14 * s))
+    d.pieslice([W_ * 0.15, -W_ * 0.35, W_ * 0.85, W_ * 0.75], 0, 180, fill=g, outline=gd, width=int(5 * s))
+    d.rectangle([W_ * 0.15, W_ * 0.0, W_ * 0.85, W_ * 0.2], fill=g, outline=gd, width=int(5 * s))
+    d.rectangle([W_ * 0.44, W_ * 0.72, W_ * 0.56, W_ * 0.98], fill=gd)
+    d.rectangle([W_ * 0.25, W_ * 0.98, W_ * 0.75, W_ * 1.1], fill=g, outline=gd, width=int(5 * s))
+    d.rectangle([W_ * 0.18, W_ * 1.1, W_ * 0.82, W_ * 1.3], fill=(90, 60, 40))
+    d.line([W_ * 0.3, W_ * 0.08, W_ * 0.3, W_ * 0.4], fill=(255, 240, 170), width=int(10 * s))
+    return _down(im)
+
+def burst(txt, size=120, col=(255, 220, 60)):
+    f = ImageFont_cjk(size)
+    tw = f.getlength(txt)
+    w, h = int(tw + 260), int(size * 2.6)
+    im = Image.new('RGBA', (w, h), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    pts = []
+    for k in range(28):
+        a = k / 28 * 2 * math.pi
+        rr = (0.5 if k % 2 else 0.36)
+        pts.append((w / 2 + math.cos(a) * w * rr, h / 2 + math.sin(a) * h * rr))
+    d.polygon(pts, fill=col, outline=(30, 25, 30))
+    d.text((w / 2 - tw / 2, h / 2 - size * 0.62), txt, font=f, fill=(230, 40, 50), stroke_width=8, stroke_fill=(255, 255, 255))
+    return im
+
+def crumbs(img, cx, cy, t, t0, n=12, col=BISC):
+    if t < t0 or t > t0 + 1.0:
+        return
+    u = t - t0
+    d = ImageDraw.Draw(img)
+    for k in range(n):
+        a = math.radians(-160 + 140 * k / (n - 1))
+        v = 300 + 120 * ((k * 7) % 5) / 5
+        x = cx + math.cos(a) * v * u
+        y = cy + math.sin(a) * v * u + 1400 * u * u
+        r = 9 - 3 * (k % 3)
+        d.ellipse([x - r, y - r, x + r, y + r], fill=col if k % 3 else CHOC)
+
+def smears(img, hx, hy, k=1.0, n=6):
+    d = ImageDraw.Draw(img)
+    for j in range(int(n * clamp01(k) + 0.5)):
+        ox = ((j * 37) % 70) - 35
+        oy = ((j * 23) % 60) - 30
+        r = 16 + (j % 3) * 6
+        d.ellipse([hx + ox - r, hy + oy - r * 0.8, hx + ox + r, hy + oy + r * 0.8], fill=CHOC)
+        d.ellipse([hx + ox - r * 0.4, hy + oy - r * 0.5, hx + ox, hy + oy - r * 0.15], fill=CHOC_HI)
+
+def drip(img, x, y0, t, t0, L=120):
+    if t < t0:
+        return
+    u = clamp01((t - t0) / 0.8)
+    d = ImageDraw.Draw(img)
+    yy = y0 + L * ease_in_out(u)
+    d.line([(x, y0), (x, yy)], fill=CHOC, width=16)
+    d.ellipse([x - 13, yy - 10, x + 13, yy + 18], fill=CHOC)
+
+def calendar(w=360, month='NOV', day='11'):
+    im, d = _ss(w, w * 1.1)
+    s = SS
+    W_, H_ = w * s, w * 1.1 * s
+    d.rounded_rectangle([0, 0, W_ - 1, H_ - 1], 26 * s, fill=(255, 255, 255), outline=(170, 170, 180), width=int(4 * s))
+    d.rounded_rectangle([0, 0, W_ - 1, H_ * 0.3], 26 * s, fill=(230, 60, 70))
+    d.rectangle([0, H_ * 0.18, W_ - 1, H_ * 0.3], fill=(230, 60, 70))
+    for x in (W_ * 0.28, W_ * 0.72):
+        d.rounded_rectangle([x - 10 * s, -18 * s, x + 10 * s, 30 * s], 8 * s, fill=(90, 90, 100))
+    f1 = font(int(w * 0.17 * s))
+    d.text((W_ / 2 - f1.getlength(month) / 2, H_ * 0.03), month, font=f1, fill=(255, 255, 255))
+    f2 = font(int(w * 0.48 * s))
+    d.text((W_ / 2 - f2.getlength(day) / 2, H_ * 0.26), day, font=f2, fill=(40, 40, 50))
+    return _down(im)
+
+def vat(w=520, h=300, level=0.7, t=0.0):
+    im, d = _ss(w, h)
+    s = SS
+    W_, H_ = w * s, h * s
+    d.rounded_rectangle([0, H_ * 0.12, W_ - 1, H_ - 1], 30 * s, fill=(190, 195, 205), outline=(120, 125, 135), width=int(6 * s))
+    d.ellipse([0, 0, W_ - 1, H_ * 0.26], fill=(160, 165, 175), outline=(120, 125, 135), width=int(6 * s))
+    d.ellipse([18 * s, 10 * s, W_ - 18 * s, H_ * 0.24], fill=CHOC)
+    for k in range(3):
+        ph = t * 1.3 + k * 2.1
+        x = W_ * (0.25 + 0.25 * k) + 30 * s * math.sin(ph)
+        d.arc([x - 60 * s, H_ * 0.06, x + 60 * s, H_ * 0.2], 200, 340, fill=CHOC_HI, width=int(5 * s))
+    d.line([30 * s, H_ * 0.35, 30 * s, H_ * 0.9], fill=(225, 228, 235), width=int(10 * s))
+    return _down(im)
+
+# characters
+GIRL = dict(PRESETS['girl'], top=(240, 110, 160))
+BOY = dict(PRESETS['boy'], top=(90, 170, 230), hat=None, hair='messy', hair_color=(60, 40, 30))
+FW1 = dict(PRESETS['worker'], skin='light', top=(245, 245, 245), hat='cap', hat_color=(245, 245, 245), hair_color=(30, 25, 25), apron=(90, 150, 210))
+FW2 = dict(PRESETS['scientist'], skin='light', hair='short', hair_color=(30, 25, 25), glasses=False)
+COOK = dict(PRESETS['chef'], skin='light', hair_color=(30, 25, 25), mustache=False, apron=(60, 70, 110))
+TEEN2 = dict(PRESETS['girl'], skin='brown', hair='curly', hair_color=(30, 20, 15), top=(250, 190, 60), bottom=(70, 90, 150))
+SHOPKEEP = dict(PRESETS['salesman'], hat=None, top=(60, 120, 90), tie=(240, 200, 60))
+HOST = dict(PRESETS['boss'], skin='medium', hair_color=(30, 25, 20), top=(40, 40, 60), tie=(220, 170, 40))
+
+# ================================================================ scenes
+# 0  Why does Pocky have a bare handle?
+class P0(Sc):
+    punch = 0.0
     def events(self):
-        return [(0.02, 'bigpop', 0.45), (self.we('teens') - 0.04, 'pop', 0.35), (self.we('one') - 0.05, 'chime', 0.5)]
+        return [(0.0, 'bigpop', 0.5), (self.we('bare') - 0.06, 'pop', 0.45)]
     def shots(self):
-        return [(0.0, 1.08, 1.12, CX, 1160), (self.we('teens'), 1.2, 1.24, CX + 20, 1220), (self.we('tiny') - 0.1, 1.32, 1.4, 500, 1150)]
+        return [(0.0, 1.0, 1.12, 560, 1300), (self.we('bare') - 0.05, 1.18, 1.3, 470, 1500)]
     def plate(self):
         return bedroom_plate()
     def dyn(self, img, t):
-        tn = self.we('teens')
-        hh = self.we('tiny') - 0.1
-        if t < tn:
-            e, al, ar = 'shocked', 150 + 8 * math.sin(t * 9), 150 + 8 * math.sin(t * 8)
-        elif t < hh:
-            e, al, ar = 'happy', 120 + 20 * math.sin(t * 8), 30
-        else:
-            e, al, ar = 'happy', 160, 160
-        bedroom_scene(img, t, e, al, ar, t_heart=hh)
+        br = self.we('bare') - 0.06
+        P(img, GIRL, 1040, 2010, t, 'think' if t < br else 'shocked', arm_l=95 + 6 * math.sin(t * 7), arm_r=150 if t >= br else 25,
+          scale=0.95, look_dir=-1)
+        put(img, snack_box(240), 1180, 1880, 1.0, -4)
+        floor_shadow(img, 1180, 2015, 130, 0.3)
+        L, ang = 1260, 64 + 1.5 * math.sin(t * 2.4)
+        c = (500, 1500 - 10 * math.sin(t * 3))
+        sh = stick(L, 92)
+        shd = sh.copy()
+        shd.putalpha(sh.getchannel('A').point(lambda v: int(v * 0.28)))
+        shd = Image.merge('RGBA', (Image.new('L', sh.size, 0),) * 3 + (shd.getchannel('A'),)).filter(ImageFilter.GaussianBlur(10))
+        put(img, shd, c[0] + 30, c[1] + 40, 1.0, ang)
+        put(img, sh, c[0], c[1], 1.0, ang)
+        hx, hy = stick_point(c, L, ang, 0.1)
+        ring(img, hx, hy, 175, t, -0.4)
+        arrow(img, hx + 380, hy - 120, hx + 170, hy - 40, t, br)
 
-# 1  And the word emoji has nothing to do with emotion.
-class E1(Sc):
+# 1  It's not to save chocolate.
+class P1(Sc):
     def events(self):
-        return [(0.05, 'squeak', 0.45), (self.we('has') - 0.05, 'squeak', 0.4), (self.we('nothing') - 0.03, 'buzzer', 0.4)]
+        return [(0.04, 'swipe', 0.3), (self.we('not') - 0.03, 'buzzer', 0.45)]
     def shots(self):
-        return [(0.0, 1.05, 1.1, CX, 1100), (self.we('has'), 1.2, 1.25, CX + 120, 1000), (self.we('nothing'), 1.1, 1.14, CX, 1150)]
+        return [(0.0, 1.05, 1.1, CX, 1250), (self.we('save'), 1.22, 1.28, 560, 1350)]
     def plate(self):
-        return classroom_plate()
-    def reveal(self, img, txt, x, y, u, col=(40, 70, 170), size=130):
-        if u <= 0:
-            return None
-        f = font(size, FONT_BOLD)
-        w = int(f.getlength(txt)) + 20
-        ti = Image.new('RGBA', (w, size + 60), (0, 0, 0, 0))
-        ImageDraw.Draw(ti).text((10, 0), txt, font=f, fill=col)
-        ti = ti.crop((0, 0, max(1, int(w * clamp01(u))), size + 60))
-        paste_at(img, ti, int(x), int(y))
-        return (x + w * clamp01(u), y + size * 0.7)
+        return kitchen_plate()
     def dyn(self, img, t):
-        tw, th, tn = self.we('word'), self.we('has'), self.we('nothing')
-        p1 = self.reveal(img, 'emoji', 150, 600, (t - tw + 0.2) / 0.45, size=120)
-        p2 = self.reveal(img, 'emotion', 700, 600, (t - th) / 0.55, (200, 60, 90), size=120)
-        d = ImageDraw.Draw(img)
-        if t >= tn:
-            u = clamp01((t - tn) / 0.25)
-            cx, cy = 600, 690
-            L = 75 * ease_back(u, 2)
-            d.line([(cx - L, cy - 30), (cx + L, cy - 30)], fill=(220, 30, 40), width=22)
-            d.line([(cx - L, cy + 30), (cx + L, cy + 30)], fill=(220, 30, 40), width=22)
-            d.line([(cx + L * 0.6, cy - 95), (cx - L * 0.6, cy + 95)], fill=(220, 30, 40), width=22)
-        # girl writing on the board
-        writing = t < tn
-        a = P(img, GIRL, 1060, 1960, t, 'happy' if writing else 'proud', arm_l=125 + 12 * math.sin(t * 14) * writing, arm_r=20 if writing else 60,
-              scale=0.95, look_dir=-1)
-        hold(img, marker(150, (40, 70, 170) if t < th else (200, 60, 90)), a, 'hand_l', 0, -40, -30 + 10 * math.sin(t * 14) * writing)
-        P(img, BFF, 300, 2090, t, 'shocked' if t >= tn else 'smile', arm_l=150 if t >= tn else 20, arm_r=150 if t >= tn else 100, scale=0.95, phase=2, look_dir=1)
-        school_desk(img, 360, 1740, 560)
+        nt = self.we('not') - 0.03
+        table_front(img, 1560)
+        # a bowl of melted chocolate + a stack of bars: the 'save chocolate' guess
+        b = bowl(520, 1.0, t)
+        put(img, b, 480, 1480)
+        for k in range(3):
+            d = ImageDraw.Draw(img)
+            x0, y0 = 820 + k * 18, 1520 - k * 46
+            d.rounded_rectangle([x0, y0, x0 + 300, y0 + 44], 10, fill=CHOC if k != 1 else (110, 62, 38), outline=CHOC_D, width=4)
+            for j in range(1, 5):
+                d.line([(x0 + j * 60, y0 + 6), (x0 + j * 60, y0 + 38)], fill=CHOC_D, width=3)
+        put_stick(img, (430, 1300), 640, 18, grip=0.1, th=48)
+        a = P(img, BOY, 1050, 2050, t, 'smile' if t < nt else 'sad', talk=t < nt and talk_frame(t), arm_l=60, arm_r=20, scale=0.88, look_dir=-1)
+        if t >= nt:
+            u = clamp01((t - nt) / 0.22)
+            d = ImageDraw.Draw(img)
+            cx, cy, r = 600, 1420, 330 * ease_back(u, 2)
+            for c_, w_ in (((255, 255, 255), 58), ((230, 35, 45), 40)):
+                d.line([(cx - r, cy - r * 0.8), (cx + r, cy + r * 0.8)], fill=c_, width=w_)
+                d.line([(cx - r, cy + r * 0.8), (cx + r, cy - r * 0.8)], fill=c_, width=w_)
 
-# 2  So what does it actually mean?
-class E2(Sc):
+# 2  In 1966, a Japanese company called Glico started coating thin biscuit sticks in chocolate.
+class P2(Sc):
     def events(self):
-        return [(0.05, 'rustle', 0.5), (self.we('actually') - 0.05, 'rustle', 0.45)]
+        e = [(0.04, 'swipe', 0.3), (self.we('1966') - 0.03, 'pop', 0.45), (self.we('Japanese') - 0.03, 'swipe', 0.3),
+             (self.we('Glico') - 0.03, 'ding', 0.35), (self.we('coating') - 0.05, 'sizzle', 0.3), (self.we('biscuit') - 0.02, 'tick', 0.4)]
+        return [x for x in e if x[1] in FX_OK]
     def shots(self):
-        return [(0.0, 1.05, 1.1, CX, 1150), (self.we('actually'), 1.18, 1.24, CX - 60, 1250)]
+        return [(0.0, 1.0, 1.05, CX, 1150), (self.we('Japanese') - 0.05, 1.2, 1.25, 330, 1250), (self.we('Glico') - 0.05, 1.08, 1.12, 900, 1200),
+                (self.we('coating') - 0.05, 1.3, 1.36, CX, 1380), (self.we('biscuit') - 0.05, 1.45, 1.52, 400, 1500)]
+    def plate(self):
+        return factory_plate()
+    def dyn(self, img, t):
+        ct = self.we('coating') - 0.3
+        P(img, FW1, 250, 1950, t, 'happy', talk=talk_frame(t) and t < ct, arm_l=20, arm_r=110 + 10 * math.sin(t * 4), scale=0.9, look_dir=1)
+        P(img, FW2, 1060, 1950, t, 'think' if t < ct else 'happy', arm_l=130 + 6 * math.sin(t * 5), arm_r=30, scale=0.9, phase=1.7, look_dir=-1)
+        y = 1380
+        conveyor(img, y, t, 160)
+        # chocolate stream from a hopper
+        d = ImageDraw.Draw(img)
+        d.polygon([(560, 820), (740, 820), (690, 960), (610, 960)], fill=(175, 180, 190), outline=(110, 115, 125))
+        d.rectangle([520, 760, 780, 830], fill=(160, 165, 175), outline=(110, 115, 125), width=5)
+        flow = 0.6 + 0.4 * math.sin(t * 11)
+        d.rectangle([636 - 6 * flow, 960, 664 + 6 * flow, y - 18], fill=CHOC)
+        d.line([(642, 970), (642, y - 30)], fill=CHOC_HI, width=5)
+        for k in range(8):
+            x = ((t * 160 + k * 190) % 1520) - 200
+            coated = x > 650
+            sp = stick(380, 50, bare=0.0, coat=1.0 if coated else 0.0)
+            put(img, sp, x, y - 34)
+        if t >= self.we('1966') - 0.03:
+            chip_at(img, '1966', CX, 640, t, self.we('1966') - 0.03, dot=(230, 60, 70))
+
+# 3  But chocolate melts on warm fingers, and nobody wants sticky hands.
+class P3(Sc):
+    def events(self):
+        return [(0.04, 'swipe', 0.3), (self.we('melts') - 0.02, 'splat', 0.35), (self.we('fingers') - 0.02, 'splat', 0.3),
+                (self.we('nobody') - 0.03, 'squeak', 0.4)]
+    def shots(self):
+        return [(0.0, 1.02, 1.06, CX, 1200), (self.we('melts') - 0.05, 1.35, 1.42, 780, 1150), (self.we('nobody') - 0.05, 1.0, 1.04, CX, 1200),
+                (self.we('sticky') - 0.05, 1.3, 1.36, 760, 1180)]
     def plate(self):
         return living_plate()
     def dyn(self, img, t):
-        P(img, BFF, 1020, 1960, t, 'think', arm_l=120 + 8 * math.sin(t * 6), arm_r=120 - 8 * math.sin(t * 6), scale=0.92, phase=1.3, look_dir=-1)
-        a = P(img, GIRL, 450, 1990, t, 'think', arm_l=45, arm_r=45, scale=1.0, look_dir=1)
-        fl = (t * 2.2) % 1
-        bk = dictionary(520, fl)
-        mx = (a['hand_l'][0] + a['hand_r'][0]) / 2
-        my = (a['hand_l'][1] + a['hand_r'][1]) / 2
-        put(img, bk, mx, my - 30, 1.0, 4 * math.sin(t * 3))
+        ml, nb = self.we('melts'), self.we('nobody')
+        ex = 'happy' if t < ml else ('nervous' if t < nb else 'shocked')
+        wob = 10 * math.sin(t * 16) * (t >= nb)
+        a = P(img, BOY, 400, 1990, t, ex, arm_l=20, arm_r=125 + wob, scale=1.0, look_dir=1)
+        hx, hy = a['hand_r']
+        put_stick(img, (hx, hy), 440, 48 + wob * 0.5, grip=0.06, bare=0.0, th=46)
+        k = clamp01((t - ml) / 1.2)
+        smears(img, hx, hy, k, 7)
+        drip(img, hx + 14, hy + 20, t, ml + 0.3, 110)
+        drip(img, hx - 18, hy + 26, t, ml + 0.8, 80)
+        P(img, TEEN2, 1110, 1990, t, 'smile' if t < nb else 'shocked', arm_l=150 if t >= nb else 30, arm_r=20, scale=0.92, phase=2, look_dir=-1)
 
-# 3  In the nineties, a Japanese pager let you send a little heart, and teens were obsessed.
-class E3(Sc):
+# 4  So they left one end bare, like a little handle.
+class P4(Sc):
     def events(self):
-        return [(0.05, 'swipe', 0.3), (self.we('pager') - 0.03, 'tick', 0.5), (self.we('send') + 0.1, 'bloop', 0.5),
-                (self.we('obsessed') - 0.25, 'party', 0.35)]
+        return [(0.04, 'swipe', 0.3), (self.we('left') - 0.05, 'splat', 0.35), (self.we('bare') - 0.05, 'pop', 0.45),
+                (self.we('like') - 0.03, 'ding', 0.4)]
     def shots(self):
-        return [(0.0, 1.0, 1.05, CX, 1150), (self.we('pager') - 0.05, 1.25, 1.3, 380, 1050), (self.we('send'), 1.05, 1.08, CX, 1120),
-                (self.we('teens'), 1.15, 1.2, CX, 1200)]
+        return [(0.0, 1.05, 1.1, CX, 1250), (self.we('bare') - 0.08, 1.25, 1.3, CX, 1050), (self.we('like') - 0.05, 1.12, 1.16, CX, 1150)]
+    def plate(self):
+        return factory_plate()
+    def dyn(self, img, t):
+        lf, br = self.we('left') - 0.1, self.we('bare') - 0.08
+        # rack of sticks dips (only the lower part) into the vat, then lifts out
+        u_dn = clamp01((t - 0.05) / max(0.3, lf - 0.05))
+        u_up = clamp01((t - lf - 0.15) / 0.45)
+        depth = ease_in_out(u_dn) * (1 - ease_in_out(u_up))
+        coated = t >= lf
+        L = 640
+        rack_y = 640 + 330 * depth
+        vt = vat(780, 380, 1.0, t)
+        paste_at(img, vt, int(CX - vt.width / 2), 1300)
+        d = ImageDraw.Draw(img)
+        d.rectangle([CX - 380, rack_y - 40, CX + 380, rack_y], fill=(120, 125, 135), outline=(80, 85, 95), width=5)
+        d.rectangle([CX - 14, 300, CX + 14, rack_y - 40], fill=(150, 155, 165))
+        xs = [CX - 300 + k * 100 for k in range(7)]
+        for x in xs:
+            sp = stick(L, 44, bare=0.24, coat=1.0 if coated else 0.0)
+            put(img, sp, x, rack_y + L / 2 - 10, 1.0, -90)   # handle at the top (held by the rack)
+        # front lip of the vat hides the dipped part
+        d.rounded_rectangle([CX - 390, 1360, CX + 390, 1680], 30, fill=(190, 195, 205), outline=(120, 125, 135), width=6)
+        d.line([(CX - 360, 1400), (CX - 360, 1640)], fill=(225, 228, 235), width=10)
+        if coated and t > lf + 0.2:
+            for k, x in enumerate(xs[::2]):
+                drip(img, x + 6, rack_y + L - 10, t, lf + 0.25 + 0.1 * k, 50)
+        P(img, FW1, 1120, 2080, t, 'think' if t < br else 'proud', arm_l=140 if t >= br else 40, arm_r=20, scale=0.8, look_dir=-1)
+        if t >= br:
+            ring(img, CX, rack_y + L * 0.12, 420, t, br)
+
+# 5  The idea was reportedly inspired by Japanese fried foods served on skewers.
+class P5(Sc):
+    def events(self):
+        return [(0.04, 'swipe', 0.3), (self.we('Japanese') - 0.03, 'sizzle', 0.35), (self.we('served') - 0.05, 'pop', 0.4)]
+    def shots(self):
+        return [(0.0, 1.02, 1.06, CX, 1200), (self.we('inspired') - 0.05, 1.15, 1.2, 420, 1250), (self.we('served') - 0.05, 1.12, 1.16, CX, 1250)]
     def plate(self):
         return tokyo_plate()
     def dyn(self, img, t):
-        sd, ob = self.we('send') + 0.1, self.we('teens')
-        crazy = t >= ob
-        a1 = P(img, JP1, 290, 1950, t, 'happy' if t < ob else 'happy', talk=talk_frame(t) and sd - 0.6 < t < sd + 0.3,
-               arm_l=20 if not crazy else 150, arm_r=140 + (8 * math.sin(t * 12) if crazy else 0), scale=0.95, look_dir=1)
-        a2 = P(img, JP2, 1010, 1950, t, 'shocked' if sd + 0.7 < t < ob else ('happy' if crazy else 'smile'),
-               arm_l=140 + (8 * math.sin(t * 11) if crazy else 0), arm_r=20 if not crazy else 150, scale=0.95, phase=2, look_dir=-1)
-        p1 = (a1['hand_r'][0] + 10, a1['hand_r'][1] - 80)
-        p2 = (a2['hand_l'][0] - 10, a2['hand_l'][1] - 80)
-        put(img, pager(170, (240, 120, 170), 1.0, False), p1[0], p1[1], 1.0, -8)
-        got = t >= sd + 0.7
-        put(img, pager(170, (120, 160, 240), 1.0, not got), p2[0], p2[1], 1.0, 8)
-        # heart flies across (and keeps flying back and forth once they're hooked)
-        trips = [sd] + ([ob + k * 0.55 for k in range(6)] if crazy else [])
-        for k, s0 in enumerate(trips):
-            u = (t - s0) / 0.7
-            if 0 <= u <= 1:
-                a, b = (p1, p2) if k % 2 == 0 else (p2, p1)
-                x = a[0] + (b[0] - a[0]) * ease_in_out(u)
-                y = a[1] + (b[1] - a[1]) * u - 380 * math.sin(u * math.pi)
-                put(img, heart_sp(46), x, y - 60, 1.0 + 0.3 * math.sin(u * math.pi))
-        if crazy:
-            hearts_burst(img, CX, 1000, t, ob, n=11, spread=520, r=40)
-
-# 4  As the story goes, when a new model dropped it, people were so upset the company noticed.
-class E4(Sc):
-    def events(self):
-        e = [(0.05, 'pop', 0.35), (self.we('dropped') - 0.03, 'buzzer', 0.45)]
-        up = self.we('upset')
-        e += [(up - 0.2 + k * 0.18, 'rustle', 0.35) for k in range(5)]
-        e += [(self.we('company') - 0.05, 'thud', 0.4)]
-        return e
-    def shots(self):
-        return [(0.0, 1.0, 1.05, CX, 1150), (self.we('model'), 1.3, 1.35, 840, 1300), (self.we('people'), 1.05, 1.1, CX, 1150),
-                (self.we('company'), 1.18, 1.24, CX - 40, 1150)]
-    def plate(self):
-        return office_plate()
-    def dyn(self, img, t):
-        dr, up, co = self.we('dropped'), self.we('people'), self.we('company')
-        ex = 'smile' if t < dr else ('nervous' if t < co else 'shocked')
-        a = P(img, EXEC2, 560, 1840, t, ex, arm_l=20 if t < co else 150, arm_r=60 + 10 * math.sin(t * 5) if t < co else 150, scale=0.95)
-        if t >= up:
-            P(img, JP2, 1060, 1960, t, 'angry', talk=talk_frame(t), arm_l=150 + 10 * math.sin(t * 10), arm_r=30, scale=0.9, phase=1, look_dir=-1)
-        desk_front(img, 1500)
-        # the new pager on the desk: the heart is gone
-        put(img, pager(230, (150, 110, 210), 1.0, t >= dr), 860, 1500 - 175)
-        floor_shadow(img, 860, 1510, 150, 0.3)
-        if t >= dr:
-            u = clamp01((t - dr) / 0.25)
-            d = ImageDraw.Draw(img)
-            cx, cy = 860, 1500 - 175 - 60
-            r = 70 * ease_back(u, 2)
-            d.ellipse([cx - r, cy - r, cx + r, cy + r], outline=(230, 30, 40), width=14)
-            d.line([(cx - r * 0.7, cy + r * 0.7), (cx + r * 0.7, cy - r * 0.7)], fill=(230, 30, 40), width=14)
-        # angry letters pile up
-        if t >= up - 0.2:
-            n = int((t - up + 0.2) / 0.09)
-            for k in range(min(n, 40)):
-                s0 = up - 0.2 + k * 0.09
-                u = clamp01((t - s0) / 0.45)
-                tx = (90 + (k * 137) % 220) if k % 2 else (930 + (k * 137) % 230)
-                ty = 1460 - (k // 8) * 22 - ((k * 31) % 30)
-                y = -100 + (ty + 100) * ease_in_out(u)
-                put(img, envelope(130), tx, y, 1.0, ((k * 47) % 50) - 25 + (1 - u) * 90)
-
-# 5  So in 1999, a designer named Shigetaka Kurita drew 176 tiny pictures for phones, each just 12 by 12 pixels.
-class E5(Sc):
-    def events(self):
-        e = [(0.05, 'swipe', 0.3), (self.we('designer') - 0.03, 'pop', 0.35)]
-        dr = self.we('drew')
-        e += [(dr + k * 0.12, 'tick', 0.35) for k in range(6)]
-        e += [(self.we('176') - 0.03, 'bigpop', 0.45), (self.we('each') - 0.05, 'swipe', 0.3), (wx(self, '12') - 0.03, 'pop', 0.4)]
-        return e
-    def shots(self):
-        return [(0.0, 1.0, 1.05, CX, 1150), (self.we('designer'), 1.2, 1.25, 360, 1000), (self.we('drew'), 1.25, 1.3, 760, 1080),
-                (self.we('176'), 1.1, 1.14, 700, 1060), (self.we('each'), 1.55, 1.62, 765, 1090)]
-    def plate(self):
-        return designer_plate()
-    def dyn(self, img, t):
-        ds, dr, n176, ea = self.we('designer'), self.we('drew'), self.we('176'), self.we('each')
-        W_ = 660
-        sw, sh_ = int(W_ * 0.8), int(W_ * 0.86 * 0.79 - W_ * 0.09)
-        if t < n176:
-            n = int(npix('heart') * clamp01((t - ds) / max(0.5, n176 - ds - 0.3)))
-            sc_ = screen_content(sw, sh_, 'draw', n=n)
-        elif t < ea:
-            sc_ = screen_content(sw, sh_, 'set', n=int(176 * clamp01((t - n176) / 0.9)))
-        else:
-            sc_ = screen_content(sw, sh_, 'draw', n=None)
-        mon = crt(W_, sc_)
-        ex = 'think' if t < dr else ('happy' if t < ea else 'proud')
-        a = P(img, KURITA, 290, 1900, t, ex, arm_l=20, arm_r=70 + 6 * math.sin(t * 9), scale=0.95, look_dir=1)
-        desk_front(img, 1480)
-        floor_shadow(img, 770, 1490, 330, 0.35)
-        paste_at(img, mon, int(770 - mon.width / 2), int(1485 - mon.height))
+        jp, sv = self.we('Japanese'), self.we('served') - 0.05
+        stall_table(img, 1560)
         d = ImageDraw.Draw(img)
-        # keyboard + mouse
-        d.polygon([(560, 1510), (980, 1510), (1000, 1570), (540, 1570)], fill=(225, 220, 205), outline=(160, 150, 130))
-        for k in range(3):
-            d.line([(570 + k * 6, 1525 + k * 14), (970 - k * 6, 1525 + k * 14)], fill=(180, 172, 150), width=4)
+        # fryer pot on the stall
+        d.rounded_rectangle([360, 1420, 620, 1560], 20, fill=(70, 72, 80))
+        d.ellipse([360, 1400, 620, 1445], fill=(220, 170, 70))
+        for k in range(5):
+            ph = (t * 3 + k * 0.37) % 1
+            x = 390 + k * 50
+            d.ellipse([x - 6 * ph - 3, 1420 - 50 * ph - 3, x + 6 * ph + 3, 1420 - 50 * ph + 3], outline=(250, 230, 180), width=3)
+        a = P(img, COOK, 190, 2060, t, 'happy', talk=talk_frame(t) and t < sv, arm_l=20, arm_r=148 + 4 * math.sin(t * 4), scale=0.92)
         hx, hy = a['hand_r']
-        d.ellipse([hx - 30, max(hy, 1470) - 10, hx + 30, max(hy, 1470) + 34], fill=(225, 220, 205), outline=(160, 150, 130), width=3)
-        if n176 <= t < ea:
-            chip_at(img, '176', 770, 640, t, n176, dot=(230, 50, 80))
-        elif t >= wx(self, '12'):
-            chip_at(img, '12 × 12', 770, 690, t, wx(self, '12'), dot=(60, 110, 210))
+        sk = skewer(520)
+        put_sk(img, sk, (hx, hy), 520, 76 + 3 * math.sin(t * 3))
+        if t >= jp:
+            b = P(img, GIRL, 1110, 2060, t, 'think' if t < sv else 'shocked', arm_l=148, arm_r=20, scale=0.92, phase=1.5, look_dir=-1)
+            gx, gy = b['hand_l']
+            put_stick(img, (gx, gy), 560, 104 - 3 * math.sin(t * 3), grip=0.08, th=48)
+        if t >= sv:
+            # dashed 'match' arcs from skewer handle to the stick handle
+            ring(img, hx, hy - 20, 110, t, sv)
+            if t >= jp:
+                ring(img, gx, gy - 20, 110, t, sv + 0.15)
 
-# 6  Today, that set is in New York's Museum of Modern Art.
-class E6(Sc):
+# 6  Even the name is a sound. Pocky comes from pokkin, the snap you hear when you bite one.
+class P6(Sc):
     def events(self):
-        return [(0.05, 'swipe', 0.3), (self.we('Museum') - 0.03, 'chime', 0.5)]
+        return [(0.04, 'swipe', 0.3), (self.we('sound') - 0.03, 'pop', 0.35), (self.we('pokkin') - 0.02, 'crack', 0.6),
+                (self.we('snap') - 0.02, 'crack', 0.5), (self.we('bite') - 0.02, 'crack', 0.45)]
     def shots(self):
-        return [(0.0, 1.05, 1.1, CX, 1000), (self.we('York'), 1.1, 1.14, CX, 1150), (self.we('Modern'), 1.22, 1.28, CX, 950)]
+        return [(0.0, 1.02, 1.06, CX, 1150), (self.we('pokkin') - 0.08, 1.3, 1.36, 540, 1150), (self.we('snap') - 0.05, 1.12, 1.16, CX, 1150),
+                (self.we('bite') - 0.05, 1.32, 1.38, 520, 1150)]
     def plate(self):
-        self.panel = icon_panel(640, 420)
-        return museum_plate()
+        return classroom_plate()
     def dyn(self, img, t):
-        mu = self.we('Museum')
-        paste_at(img, self.panel, int(CX - self.panel.width / 2), 540)
-        if t >= mu:
-            d = ImageDraw.Draw(img)
-            for k in range(6):
-                ph = ((t - mu) * 0.9 + k / 6) % 1
-                ang = k * math.pi / 3 + (t - mu)
-                sparkle(d, CX + math.cos(ang) * 420, 770 + math.sin(ang) * 300, 26 * (1 - abs(ph - 0.5)))
-        museum_front(img, 1760)
-        P(img, GIRL, 360, 1990, t, 'happy' if t < mu else 'shocked', arm_l=20, arm_r=150 if t >= mu else 110, scale=0.92, look_dir=1)
-        P(img, GRAN, 960, 1990, t, 'smile' if t < mu else 'proud', talk=talk_frame(t) and t < mu, arm_l=110, arm_r=20, scale=0.9, phase=1.5, look_dir=-1)
+        pk, sn, bt = self.we('pokkin') - 0.02, self.we('snap') - 0.02, self.we('bite') - 0.02
+        snaps = [pk, sn, bt]
+        n = sum(1 for s in snaps if t >= s)
+        last = max([s for s in snaps if t >= s], default=None)
+        school_desk(img, 640, 1740, 620)
+        a = P(img, GIRL, 470, 1990, t, 'happy' if n == 0 else ('shocked' if last is not None and t - last < 0.35 else 'happy'),
+              talk=n > 0 and last is not None and t - last < 0.3, arm_l=20, arm_r=75 + 4 * math.sin(t * 5), scale=0.98, look_dir=1)
+        hx, hy = a['hand_r']
+        head = a['head']
+        mx, my = head[0] + 25, head[1] + 75
+        dist = math.hypot(mx - hx, my - hy)
+        ang = math.degrees(math.atan2(-(my - hy), mx - hx))
+        # the stick gets shorter with each snap
+        bite = [0.0, 0.18, 0.32, 0.45][n]
+        Ls = dist / 0.92 / (1 - bite) * 1.0
+        put_stick(img, (hx, hy), Ls, ang, grip=0.08, th=48, bite=bite)
+        for s in snaps:
+            crumbs(img, head[0] + 60, head[1] + 70, t, s)
+        P(img, BOY, 1050, 1990, t, 'happy' if n == 0 else 'proud', arm_l=150 if n else 60, arm_r=20, scale=0.9, phase=2, look_dir=-1)
+        if t >= pk:
+            u = clamp01((t - pk) / 0.25)
+            bs = burst('ポッキン', 110)
+            put(img, bs, 840, 820 + 10 * math.sin(t * 6), 0.6 + 0.4 * ease_back(u, 2.5), -6)
 
-# 7  Plot twist: it wasn't even the first.
-class E7(Sc):
+# 7  In Europe, it's sold under a totally different name: Mikado.
+class P7(Sc):
     def events(self):
-        return [(0.03, 'scratch', 0.5), (self.we('wasn') - 0.03, 'swipe', 0.35), (self.we('even'), 'bigpop', 0.45)]
+        return [(0.04, 'swipe', 0.3), (self.we('sold') - 0.03, 'cash', 0.35), (self.we('totally') - 0.03, 'swipe', 0.4)]
     def shots(self):
-        return [(0.0, 1.12, 1.16, CX, 1150), (self.we('wasn'), 1.0, 1.04, CX, 1150), (self.we('first') - 0.1, 1.2, 1.25, CX, 1050)]
+        return [(0.0, 1.02, 1.06, CX, 1150), (self.we('sold') - 0.05, 1.2, 1.25, 520, 1250), (self.we('totally') - 0.05, 1.3, 1.36, 640, 1250)]
     def plate(self):
-        self.panel = icon_panel(300, 200)
+        return street_plate()
+    def dyn(self, img, t):
+        sd, tt = self.we('sold') - 0.05, self.we('totally') - 0.05
+        d = ImageDraw.Draw(img)
+        # shop counter with rows of boxes
+        d.rectangle([150, 1450, 1150, 1500], fill=(170, 120, 75))
+        d.rectangle([170, 1500, 1130, 1800], fill=(140, 95, 55))
+        for k in range(5):
+            put(img, snack_box(130, (220, 40, 50) if t < tt else (40, 70, 160)), 230 + k * 120 + (60 if k > 1 else 0) * 0, 1350, 1.0)
+        a = P(img, SHOPKEEP, 330, 2060, t, 'happy' if t < tt else 'proud', talk=talk_frame(t) and t < tt, arm_l=20, arm_r=120, scale=0.92)
+        b = P(img, BOY, 1020, 2080, t, 'smile' if t < tt else 'shocked', arm_l=110 + 6 * math.sin(t * 5), arm_r=20, scale=0.9, phase=1, look_dir=-1)
+        # the box in the shopkeeper's hand flips from red to blue on 'totally'
+        hx, hy = a['hand_r']
+        u = clamp01((t - tt) / 0.3)
+        sq = abs(math.cos(u * math.pi))
+        col = (220, 40, 50) if u < 0.5 else (40, 70, 160)
+        bx = snack_box(230, col)
+        bx = bx.resize((max(2, int(bx.width * max(0.05, sq))), bx.height))
+        put(img, bx, hx + 90, hy - 160, 1.0, -5)
+
+# 8  And in 2020, Guinness World Records named it the biggest chocolate-coated biscuit brand on Earth.
+class P8(Sc):
+    def events(self):
+        return [(0.04, 'swipe', 0.3), (self.we('2020') - 0.03, 'pop', 0.4), (self.we('Guinness') - 0.03, 'riser', 0.3),
+                (self.we('named') - 0.03, 'chime', 0.45), (self.we('biggest') - 0.03, 'party', 0.4)]
+    def shots(self):
+        return [(0.0, 1.0, 1.04, CX, 1150), (self.we('Guinness') - 0.05, 1.15, 1.2, CX, 1000), (self.we('biggest') - 0.05, 1.05, 1.1, CX, 1150),
+                (self.we('biscuit') - 0.05, 1.22, 1.28, CX, 1050)]
+    def plate(self):
         return stage_plate()
     def dyn(self, img, t):
-        wn, ev = self.we('wasn'), self.we('even')
-        spots = podium(img, 1720)
-        u = clamp01((t - wn) / 0.4)
+        nm, bg = self.we('named') - 0.03, self.we('biggest') - 0.03
+        spots = podium(img, 1760)
         x1, y1 = spots['1']
-        x2, y2 = spots['2']
-        px = x1 + (x2 - x1) * ease_in_out(u)
-        py = y1 + (y2 - y1) * ease_in_out(u) - 120 * math.sin(u * math.pi)
-        paste_at(img, self.panel, int(px - self.panel.width / 2), int(py - self.panel.height))
-        if t >= ev:
-            v = clamp01((t - ev) / 0.3)
-            ph = phone97(170)
-            y = -300 + (y1 - ph.height / 2 + 300) * ease_out(v)
-            put(img, ph, x1, y, 1.0, 8 * (1 - v))
-            if v >= 1:
-                d = ImageDraw.Draw(img)
-                for k in range(8):
-                    ang = k * math.pi / 4 + t
-                    sparkle(d, x1 + math.cos(ang) * 200, y + math.sin(ang) * 260, 24)
-        P(img, GIRL, 1060, 2010, t, 'shocked' if t >= wn else 'think', arm_l=150 + 6 * math.sin(t * 9), arm_r=150 + 6 * math.sin(t * 8), scale=0.92, look_dir=-1)
-
-# 8  Another Japanese phone had 90 emoji back in 1997, and that's the family your iPhone emoji came from.
-class E8(Sc):
-    def events(self):
-        e = [(0.05, 'pop', 0.35), (self.we('90') - 0.03, 'tick', 0.5), (self.we('1997') - 0.05, 'ding', 0.45),
-             (self.we('family') - 0.05, 'swipe', 0.3), (self.we('iPhone') - 0.04, 'chime', 0.45)]
-        return e
-    def shots(self):
-        return [(0.0, 1.0, 1.05, CX, 1150), (self.we('90') - 0.05, 1.3, 1.36, 380, 1050), (self.we('family') - 0.05, 1.0, 1.04, CX, 1120),
-                (self.we('iPhone') - 0.05, 1.06, 1.1, CX + 60, 1080)]
-    def plate(self):
-        return phoneshop_plate()
-    def dyn(self, img, t):
-        n90, fa, ip = self.we('90'), self.we('family'), self.we('iPhone')
-        a = P(img, CLERK, 330, 1840, t, 'happy' if t < fa else 'proud', talk=talk_frame(t) and t < fa, arm_l=20, arm_r=(125 if t < fa else 70) + 5 * math.sin(t * 5), scale=0.95)
-        if t >= fa:
-            b = P(img, GIRL, 930, 1990, t, 'shocked' if t < ip else 'happy', arm_l=20, arm_r=135 + 5 * math.sin(t * 6), scale=0.92, phase=2, look_dir=-1)
-        glass_counter(img, 1560)
-        n = 0 if t < n90 else 1 + int(clamp01((t - n90) / 0.6) * 5)
-        ph = phone97(200, n)
-        hx, hy = a['hand_r']
-        put(img, ph, hx + (10 if t < fa else -90), hy - (160 if t < fa else 40), 1.0, -6)
-        if t >= fa:
-            sp = smartphone(220)
-            gx, gy = b['hand_r']
-            gx, gy = gx - 150, gy - 200
-            if t >= ip:
-                glow = Image.new('RGBA', (420, 620), (0, 0, 0, 0))
-                ImageDraw.Draw(glow).rounded_rectangle([60, 60, 360, 560], 60, fill=(255, 240, 150, 150))
-                glow = glow.filter(ImageFilter.GaussianBlur(30))
-                put(img, glow, gx, gy)
-            put(img, sp, gx, gy, 1.0, 6)
-            # family link: dotted golden arc from old phone to new phone with hearts
-            u = clamp01((t - fa) / 0.6)
+        u = clamp01((t - 0.05) / 0.4)
+        bx = snack_box(300)
+        put(img, bx, x1, y1 - bx.height / 2 + 10 - 300 * (1 - ease_out(u)), 1.0, 3 * math.sin(t * 2))
+        if t >= nm:
+            v = clamp01((t - nm) / 0.3)
+            tr = trophy(200)
+            put(img, tr, spots['2'][0], spots['2'][1] - tr.height / 2 + 10, 0.4 + 0.6 * ease_back(v, 2))
+        if t >= bg:
             d = ImageDraw.Draw(img)
-            p0 = (hx + 10, hy - 420)
-            p1 = (gx, gy - 260)
-            for k in range(int(28 * u)):
-                s_ = k / 28
-                x = p0[0] + (p1[0] - p0[0]) * s_
-                y = p0[1] + (p1[1] - p0[1]) * s_ - 260 * math.sin(s_ * math.pi)
-                d.ellipse([x - 9, y - 9, x + 9, y + 9], fill=(255, 205, 60))
-            if u >= 1:
-                for k in range(3):
-                    s_ = ((t - fa) * 0.5 + k / 3) % 1
-                    x = p0[0] + (p1[0] - p0[0]) * s_
-                    y = p0[1] + (p1[1] - p0[1]) * s_ - 260 * math.sin(s_ * math.pi)
-                    put(img, heart_sp(30), x, y)
+            for k in range(40):
+                ph = ((t - bg) * 0.6 + (k * 0.137) % 1) % 1
+                x = (k * 97) % PW
+                y = 300 + ph * 1500
+                c = [(240, 80, 90), (250, 200, 60), (80, 170, 230), (120, 200, 90)][k % 4]
+                d.rectangle([x - 9, y - 5, x + 9, y + 5], fill=c)
+            for k in range(6):
+                ang = k * math.pi / 3 + t
+                sparkle(d, x1 + math.cos(ang) * 260, y1 - 250 + math.sin(ang) * 300, 26)
+        P(img, HOST, 1080, 2080, t, 'happy' if t < bg else 'proud', talk=talk_frame(t) and t < bg, arm_l=140 + 8 * math.sin(t * 5), arm_r=20, scale=0.85, look_dir=-1)
+        if t >= self.we('2020') - 0.03 and t < bg:
+            chip_at(img, '2020', CX, 640, t, self.we('2020') - 0.03, dot=(250, 200, 60))
 
-# 9  Now, the name. E means picture, moji means character.
-class E9(Sc):
+# 9  Plus, since the sticks look like ones, 11/11 is Pocky Day!
+class P9(Sc):
     def events(self):
-        return [(0.05, 'rustle', 0.4), (wx(self, 'E') - 0.05, 'pop', 0.45), (self.we('moji') - 0.05, 'pop', 0.45)]
+        return [(0.04, 'swipe', 0.3), (self.we('look') - 0.03, 'tick', 0.4), (self.we('ones') - 0.03, 'tick', 0.4),
+                (self.we('11/11') - 0.03, 'bigpop', 0.45), (self.we('is') + 0.05, 'party', 0.35)]
     def shots(self):
-        e = wx(self, 'E')
-        return [(0.0, 1.0, 1.05, CX, 1100), (e - 0.05, 1.2, 1.25, 420, 880), (self.we('moji') - 0.05, 1.2, 1.25, 880, 880)]
+        return [(0.0, 1.0, 1.04, CX, 1150), (self.we('look') - 0.05, 1.15, 1.2, CX, 950), (self.we('11/11') - 0.05, 1.08, 1.12, CX, 1050)]
     def plate(self):
-        return tatami_plate()
+        return classroom_plate()
     def dyn(self, img, t):
-        e, m = wx(self, 'E'), self.we('moji')
-        u1 = clamp01((t - e + 0.05) / 0.35)
-        u2 = clamp01((t - m + 0.05) / 0.35)
-        s1 = scroll(330, 820, '絵', True, max(0.05, u1))
-        s2 = scroll(330, 820, '文字', False, max(0.05, u2))
-        paste_at(img, s1, int(400 - s1.width / 2), 250)
-        paste_at(img, s2, int(900 - s2.width / 2), 250)
-        a = P(img, TEACH, 640, 1860, t, 'happy' if t < e else 'proud', talk=talk_frame(t) and t < e, arm_l=20,
-              arm_r=150 if t >= m else (130 if t >= e else 60), scale=0.85)
-        hold(img, brush(240), a, 'hand_r', 0, -60, -20 + 8 * math.sin(t * 6))
-        P(img, GIRL, 1130, 2010, t, 'think' if t < e else 'happy', arm_l=110, arm_r=20, scale=0.85, phase=2, look_dir=-1)
-        low_table(img, 640, 1720, 600)
+        lk, el = self.we('look') - 0.05, self.we('11/11') - 0.05
+        # four sticks fly onto the whiteboard and stand up as 1 1 / 1 1
+        xs = [300, 440, 860, 1000]
+        for k, x in enumerate(xs):
+            s0 = lk + k * 0.18
+            u = clamp01((t - s0) / 0.35)
+            if t < s0:
+                continue
+            sx = x + (1 - ease_out(u)) * (-500 if k < 2 else 500)
+            put(img, stick(520, 54, bare=0.22), sx, 760, 1.0, 90 + (1 - u) * 40)
+        if t >= el:
+            u = clamp01((t - el) / 0.25)
+            d = ImageDraw.Draw(img)
+            d.line([(700, 980 - 160 * ease_out(u)), (600, 980)], fill=(40, 70, 170), width=26)
+            cal = calendar(300)
+            put(img, cal, 1130, 640, 0.5 + 0.5 * ease_back(u, 2), 6)
+        school_desk(img, 640, 1760, 600)
+        P(img, TEEN2, 300, 2020, t, 'happy' if t < el else 'proud', arm_l=20, arm_r=150 if t >= el else 110, scale=0.9, look_dir=1)
+        P(img, BOY, 1000, 2060, t, 'think' if t < el else 'happy', arm_l=150 if t >= el else 110, arm_r=150 if t >= el else 20, scale=0.85, phase=2, look_dir=-1)
 
-# 10  Emotion? Total coincidence. And it all started with one tiny heart.
-class E10(Sc):
+# 10  So next time a friend asks you...
+class P10(Sc):
     def events(self):
-        return [(0.05, 'bloop', 0.4), (self.we('coincidence') - 0.03, 'pop', 0.35), (self.we('one') - 0.05, 'chime', 0.5)]
+        return [(0.04, 'swipe', 0.3), (self.we('friend') - 0.03, 'pop', 0.4)]
     def shots(self):
-        return [(0.0, 1.12, 1.16, CX + 120, 1200), (self.we('coincidence'), 1.2, 1.24, CX + 150, 1250),
-                (self.we('started'), 1.08, 1.12, CX, 1160), (self.we('tiny') - 0.1, 1.32, 1.4, 500, 1150)]
+        return [(0.0, 1.05, 1.1, CX, 1250), (self.we('friend') - 0.05, 1.0, 1.06, 560, 1300)]
     def plate(self):
         return bedroom_plate()
     def dyn(self, img, t):
-        co, st, hh = self.we('coincidence'), self.we('started'), self.we('tiny') - 0.1
-        if t < co:
-            e, al, ar, tk = 'think', 120, 120, False
-        elif t < st:
-            e, al, ar, tk = 'happy', 30, 140 + 10 * math.sin(t * 9), talk_frame(t)
-        else:
-            e, al, ar, tk = 'happy', 160 if t > hh else 120, 160 if t > hh else 30, False
-        bedroom_scene(img, t, e, al, ar, tk, t_heart=hh)
+        fr = self.we('friend') - 0.05
+        P(img, TEEN2, 270, 2010, t, 'smile', talk=talk_frame(t) and t < fr, arm_l=20, arm_r=70, scale=0.92, look_dir=1)
+        a = P(img, GIRL, 1040, 2010, t, 'think' if t >= fr else 'happy', arm_l=95 + 6 * math.sin(t * 7), arm_r=25, scale=0.95, look_dir=-1)
+        put(img, snack_box(240), 1180, 1880, 1.0, -4)
+        floor_shadow(img, 1180, 2015, 130, 0.3)
+        u = clamp01((t - fr) / 0.5)
+        L = 700 + 560 * ease_in_out(u)
+        c = (560 - 60 * u, 1400 + 100 * u)
+        ang = 64
+        put(img, stick(int(L), int(52 + 40 * u)), c[0], c[1], 1.0, ang)
+        if t >= fr + 0.3:
+            hx, hy = stick_point(c, L, ang, 0.1)
+            ring(img, hx, hy, 175, t, fr + 0.3)
 
-SCENES = [E0, E1, E2, E3, E4, E5, E6, E7, E8, E9, E10]
+FX_OK = {'ding', 'thud', 'sizzle', 'pop', 'boom', 'splat', 'rattle', 'riser', 'cash', 'tick', 'scratch', 'swipe', 'trombone', 'bigpop',
+         'bloop', 'buzzer', 'wind', 'crack', 'rustle', 'tape', 'party', 'chime', 'squeak', 'swipe'}
+
+SCENES = [P0, P1, P2, P3, P4, P5, P6, P7, P8, P9, P10]

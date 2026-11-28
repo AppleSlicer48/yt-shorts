@@ -15,7 +15,7 @@ Skip (and check off with a note) any topic whose facts turn out to be a myth or 
 - Titles: short, curious, no hashtag spam; a question or a "the real reason" statement.
 
 ## Queue (take from the top)
-- [ ] Why Pocky has a bare handle (outlier: 4.6M views, 64x, Noble Deeds)
+- [x] Why Pocky has a bare handle (outlier: 4.6M views, 64x, Noble Deeds) - done 2026-11-28
 - [ ] Why is there empty space before the zero on a ruler (1.4M, 455x, TrueFlicks)
 - [ ] Why do plastic chairs have a hole in the middle (746K, 8.7x, Craze Capsule)
 - [ ] Why the McFlurry spoon is hollow / shaped weird (306K, 38x, Bugs Boom)
